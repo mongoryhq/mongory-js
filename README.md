@@ -5,7 +5,7 @@ Zero-dependency, pure TypeScript MongoDB-style in-memory query matcher for JavaS
 ## Features
 
 - **Zero runtime dependencies** (ships ESM + CJS + `.d.ts`)
-- **Collision-free TS exports**: use the `mongory` namespace (`import { mongory } from "mongory"` or default import) or tree-shakable named exports (`compileMatcher`, `matchCondition`, `mongoryAnd`, `mongoryOr`) without colliding with `drizzle-orm`, `lodash`, or native `Array` helpers
+- **Collision-free TS exports**: use the `mongory` namespace (`import { mongory } from "mongory-js"` or default import) or tree-shakable named exports (`compileMatcher`, `matchCondition`, `mongoryAnd`, `mongoryOr`) without colliding with `drizzle-orm`, `lodash`, or native `Array` helpers
 - **All 17 Mongory operators**: `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin`, `$exists`, `$present`, `$and`, `$or`, `$not`, `$elemMatch`, `$every`, `$size`, `$regex` (with `$options`: `i`, `m`, `s`)
 - **MongoDB & edge-case fidelity**: `null` vs missing key (`MISSING`), dot notation & escaped dots (`\.`), canonical array index lookup (`"0"`, `"-1"` vs `"01"`), implicit `$elemMatch`, stateless `RegExp` cloning (`/g` & `/y` safe), exact `number` vs `bigint` comparisons without `2^53` precision loss, `Date` & `Uint8Array` support, prototype pollution (`__proto__`) protection
 - **Safety limits & DoS defense**: configurable `maxDepth` (default `64`) and `maxNodes` (default `4096`), circular reference rejection (`MongoryInvalidConditionError`), O(1) bucketed `Set` lookup for large `$in`/`$nin` lists (`>= 16` items)
@@ -16,7 +16,7 @@ Zero-dependency, pure TypeScript MongoDB-style in-memory query matcher for JavaS
 ### Namespace style (recommended, mirrors Go `mongory.*`)
 
 ```ts
-import { mongory } from "mongory";
+import { mongory } from "mongory-js";
 
 const users = [
   { name: "Ann", age: 30, tags: ["ts", "go"], active: true },
@@ -39,7 +39,7 @@ const top1 = isEligible.filterLimit(users, 1); // [Ann]
 ### Tree-shakable named imports
 
 ```ts
-import { compileMatcher, matchCondition, mongoryAnd, mongoryOr } from "mongory";
+import { compileMatcher, matchCondition, mongoryAnd, mongoryOr } from "mongory-js";
 
 const matcher = compileMatcher(
   mongoryAnd(
@@ -84,7 +84,7 @@ import {
   withField,
   withOperator,
   withOptions,
-} from "mongory";
+} from "mongory-js";
 
 const domainOptions = withOptions(
   withConverter(ObjectId, (id) => id.toHexString()),

@@ -52,7 +52,7 @@ export { mongoryAnd, mongoryOr };
 export { Matcher, compileMatcher, matchCondition };
 
 /**
- * Namespace entrypoint for collision-free idiomatic usage (`import { mongory } from "mongory"`).
+ * Namespace entrypoint for collision-free idiomatic usage (`import { mongory } from "mongory-js"`).
  */
 export const mongory = {
   compile: compileMatcher,
