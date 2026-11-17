@@ -1,6 +1,6 @@
 # mongory-js
 
-Zero-dependency, pure TypeScript MongoDB-style in-memory query matcher for JavaScript, TypeScript, browsers, Node.js (`>= 20`), Bun, Deno, and Edge runtimes: compile a filter condition once into an immutable matcher and evaluate objects, arrays, or class instances with built-in `explain()` and `trace()` debugging.
+Zero-dependency, pure TypeScript MongoDB-style in-memory query matcher for JavaScript, TypeScript, browsers, Node.js (`>= 20`), Bun, Deno, and Edge runtimes: compile a filter condition once into an immutable matcher and evaluate objects, arrays, or class instances with built-in text (`explain()` / `trace()`) and structured AST (`explainTree()` / `traceTree()`) debugging.
 
 ## Features
 
@@ -50,13 +50,19 @@ const matcher = compileMatcher(
 const ok = matchCondition({ age: { $gte: 18 } }, users[0]); // true
 ```
 
-### Debugging with `explain()` and `trace()`
+### Debugging with `explain()`, `trace()`, `explainTree()`, and `traceTree()`
 
 ```ts
 console.log(matcher.explain());
 
 const { matched, trace } = matcher.trace({ name: "Bob", age: 15, active: false });
 console.log(matched, trace);
+
+// Structured JSON-safe AST & trace tree (for devtools / UI visualizers)
+const ast = matcher.explainTree();
+const { tree } = matcher.traceTree({ name: "Bob", age: 15, active: false });
+// tree.status: "PASS" | "FAIL" | "SKIP"
+// skipped short-circuit branches remain visible in tree.children with status === "SKIP"
 ```
 
 ```text
@@ -65,6 +71,9 @@ console.log(matched, trace);
 │   └── [FAIL] Eq(true) | value=false
 └── [SKIP] 1 remaining branch(es) (short-circuited)
 ```
+
+- `explain()` / `explainTree()`: inspect compiled query structure sorted by evaluation priority (`order` gives exact execution position).
+- `trace(record)` / `traceTree(record)`: evaluate a record and inspect per-node `PASS` / `FAIL` / `SKIP` states, matched array element indices (`element` / `skip` nodes), and JSON-safe bounded value snapshots (`snapshotTraceValue` handles `BigInt`, `NaN`, `±Infinity`, `-0`, cycles, and deep trees).
 
 ### Compile-Scoped Extensions
 

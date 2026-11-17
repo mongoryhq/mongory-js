@@ -19,9 +19,14 @@ export {
   type ConditionInput,
   type Constructor,
   type CustomOperator,
+  type ExplainNode,
+  type MatcherNodeKind,
   type Missing,
   type Predicate,
+  type TraceNode,
   type TraceResult,
+  type TraceStatus,
+  type TraceTreeResult,
   type TypeGuard,
 } from "./types.js";
 

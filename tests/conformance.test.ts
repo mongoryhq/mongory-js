@@ -81,6 +81,9 @@ for (const dir of CONFORMANCE_DIRS) {
           return;
         }
         const matcher = compileMatcher(suite.condition);
+        const explainedTree = matcher.explainTree();
+        assert.equal(typeof explainedTree.kind, "string");
+        assert.equal(typeof JSON.stringify(explainedTree), "string");
         const records = suite.records ?? [];
         assert.ok(records.length > 0, `expected non-empty records for ${suite.description}`);
         for (const rec of records) {
@@ -96,6 +99,12 @@ for (const dir of CONFORMANCE_DIRS) {
             traced.matched,
             rec.expected,
             `trace(${JSON.stringify(rec.data)}).matched = ${traced.matched}, want ${rec.expected}`,
+          );
+          const tracedTree = matcher.traceTree(rec.data);
+          assert.equal(
+            tracedTree.matched,
+            rec.expected,
+            `traceTree(${JSON.stringify(rec.data)}).matched = ${tracedTree.matched}, want ${rec.expected}`,
           );
         }
       });

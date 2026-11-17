@@ -1,7 +1,17 @@
 import { CompileContext, OperatorBuilder, invalidCondition, sortByPriority } from "../compile_ctx.js";
-import { MatcherNode, explainBranch, traceGroup, traceWrapped, writeTreeLine } from "../explain.js";
+import {
+  MatcherNode,
+  explainBranch,
+  explainGroupTree,
+  makeExplainNode,
+  traceGroup,
+  traceGroupTree,
+  traceWrapped,
+  traceWrappedTree,
+  writeTreeLine,
+} from "../explain.js";
 import { describeType } from "../normalize.js";
-import { Condition, isPlainObject } from "../types.js";
+import { Condition, ExplainNode, TraceNode, isPlainObject } from "../types.js";
 
 export class AllOfNode implements MatcherNode {
   constructor(readonly children: ReadonlyArray<MatcherNode>) {}
@@ -33,6 +43,14 @@ export class AllOfNode implements MatcherNode {
 
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
     return traceGroup(record, lines, prefix, isLast, isRoot, "And", this.children, false);
+  }
+
+  explainTree(order?: number): ExplainNode {
+    return explainGroupTree(this, "and", "And", "$and", this.children, order);
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    return traceGroupTree(this, record, "and", "And", "$and", this.children, false, order);
   }
 }
 
@@ -67,6 +85,14 @@ export class AnyOfNode implements MatcherNode {
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
     return traceGroup(record, lines, prefix, isLast, isRoot, "Or", this.children, true);
   }
+
+  explainTree(order?: number): ExplainNode {
+    return explainGroupTree(this, "or", "Or", "$or", this.children, order);
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    return traceGroupTree(this, record, "or", "Or", "$or", this.children, true, order);
+  }
 }
 
 class NotNode implements MatcherNode {
@@ -86,6 +112,20 @@ class NotNode implements MatcherNode {
 
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
     return traceWrapped(record, lines, prefix, isLast, isRoot, "Not", this.inner, true);
+  }
+
+  explainTree(order?: number): ExplainNode {
+    return makeExplainNode("not", "Not", this.priority(), [this.inner.explainTree()], {
+      order,
+      operator: "$not",
+    });
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    return traceWrappedTree(this, record, "not", "Not", this.inner, true, {
+      order,
+      operator: "$not",
+    });
   }
 }
 

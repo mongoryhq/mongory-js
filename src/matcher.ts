@@ -2,12 +2,12 @@ import { MatcherNode } from "./explain.js";
 import { compileRoot } from "./node.js";
 import { convertRootCondition } from "./normalize.js";
 import { CompileOption, resolveCompileConfig } from "./options.js";
-import { ConditionInput, TraceResult } from "./types.js";
+import { ConditionInput, ExplainNode, TraceResult, TraceTreeResult } from "./types.js";
 
 /**
  * An immutable, compiled Mongory query matcher.
  *
- * `match`, `explain`, and `trace` are safe to pass unbound (e.g.
+ * `match`, `explain`, `explainTree`, `trace`, and `traceTree` are safe to pass unbound (e.g.
  * `records.filter(matcher.match)` or `records.some(matcher.match)`).
  */
 export class Matcher {
@@ -39,6 +39,13 @@ export class Matcher {
   };
 
   /**
+   * Returns a structured compiled AST tree ordered by evaluation priority.
+   */
+  readonly explainTree = (): ExplainNode => {
+    return this.root.explainTree();
+  };
+
+  /**
    * Evaluates `record` and returns `{ matched, trace }` with per-node PASS/FAIL/SKIP status.
    */
   readonly trace = (record: unknown): TraceResult => {
@@ -47,6 +54,17 @@ export class Matcher {
     return {
       matched,
       trace: lines.length > 0 ? `${lines.join("\n")}\n` : "",
+    };
+  };
+
+  /**
+   * Evaluates `record` and returns `{ matched, tree }` with structured per-node PASS/FAIL/SKIP status.
+   */
+  readonly traceTree = (record: unknown): TraceTreeResult => {
+    const tree = this.root.traceTree(record);
+    return {
+      matched: tree.status === "PASS",
+      tree,
     };
   };
 

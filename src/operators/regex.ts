@@ -1,6 +1,7 @@
 import { CompileContext, invalidCondition } from "../compile_ctx.js";
-import { MatcherNode, traceLeaf, writeTreeLine } from "../explain.js";
+import { MatcherNode, makeExplainNode, traceLeaf, traceLeafTreeNode, writeTreeLine } from "../explain.js";
 import { cloneStatelessRegExp, describeType } from "../normalize.js";
+import { ExplainNode, TraceNode } from "../types.js";
 import { ConvValueNode } from "./compare.js";
 
 const VALID_OPTIONS = new Set(["i", "m", "s"]);
@@ -26,6 +27,20 @@ export class RegexNode implements MatcherNode {
 
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
     return traceLeaf(this, record, lines, prefix, isLast, isRoot, this.label());
+  }
+
+  explainTree(order?: number): ExplainNode {
+    return makeExplainNode("operator", this.label(), this.priority(), [], {
+      order,
+      operator: "$regex",
+    });
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    return traceLeafTreeNode(this, record, "operator", this.label(), {
+      order,
+      operator: "$regex",
+    });
   }
 }
 

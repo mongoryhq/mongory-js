@@ -4,12 +4,17 @@ import {
   childPrefixFor,
   explainBranch,
   formatTraceValue,
+  makeExplainNode,
+  makeTraceNode,
+  markTreeSkipped,
+  snapshotTraceValue,
   statusLabel,
   traceWrapped,
+  traceWrappedTree,
   writeTreeLine,
 } from "../explain.js";
 import { describeType } from "../normalize.js";
-import { Condition, isPlainObject } from "../types.js";
+import { Condition, ExplainNode, TraceNode, isPlainObject } from "../types.js";
 
 function traceArrayElements(
   record: unknown,
@@ -98,6 +103,80 @@ class ArrayElementsNode implements MatcherNode {
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
     return traceArrayElements(record, lines, prefix, isLast, isRoot, this.op, this.inner, this.stopOn);
   }
+
+  private nodeKind(): "elemMatch" | "every" {
+    return this.op === "ElemMatch" ? "elemMatch" : "every";
+  }
+
+  private opName(): "$elemMatch" | "$every" {
+    return this.op === "ElemMatch" ? "$elemMatch" : "$every";
+  }
+
+  explainTree(order?: number): ExplainNode {
+    return makeExplainNode(this.nodeKind(), this.op, this.priority(), [this.inner.explainTree()], {
+      order,
+      operator: this.opName(),
+    });
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    const kind = this.nodeKind();
+    const operator = this.opName();
+    if (!Array.isArray(record) || record.length === 0) {
+      const reason = Array.isArray(record) ? "empty-array" : "non-array";
+      return makeTraceNode(
+        kind,
+        false,
+        this.op,
+        this.priority(),
+        record,
+        [markTreeSkipped(this.inner.explainTree(), reason)],
+        { order, operator, detail: reason },
+      );
+    }
+
+    const childTrees: TraceNode[] = [];
+    let matched = !this.stopOn;
+    const innerPrio = this.inner.priority();
+
+    for (let i = 0; i < record.length; i++) {
+      const elem = record[i];
+      const elemTree = this.inner.traceTree(elem);
+      const passed = elemTree.status === "PASS";
+      childTrees.push({
+        kind: "element",
+        status: statusLabel(passed),
+        label: `[${i}]`,
+        priority: innerPrio,
+        index: i,
+        valueText: formatTraceValue(elem),
+        value: snapshotTraceValue(elem),
+        exists: true,
+        children: [elemTree],
+      });
+      if (passed === this.stopOn) {
+        matched = this.stopOn;
+        const rem = record.length - i - 1;
+        if (rem > 0) {
+          childTrees.push({
+            kind: "skip",
+            status: "SKIP",
+            label: `${rem} remaining element(s) (short-circuited)`,
+            priority: innerPrio,
+            skippedCount: rem,
+            detail: "short-circuited",
+            children: [],
+          });
+        }
+        break;
+      }
+    }
+
+    return makeTraceNode(kind, matched, this.op, this.priority(), record, childTrees, {
+      order,
+      operator,
+    });
+  }
 }
 
 class SizeNode implements MatcherNode {
@@ -121,6 +200,36 @@ class SizeNode implements MatcherNode {
       return false;
     }
     return traceWrapped(record.length, lines, prefix, isLast, isRoot, `Size(len=${record.length})`, this.inner, false);
+  }
+
+  explainTree(order?: number): ExplainNode {
+    return makeExplainNode("size", "Size", this.priority(), [this.inner.explainTree()], {
+      order,
+      operator: "$size",
+    });
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    if (!Array.isArray(record)) {
+      return makeTraceNode(
+        "size",
+        false,
+        "Size",
+        this.priority(),
+        record,
+        [markTreeSkipped(this.inner.explainTree(), "non-array")],
+        { order, operator: "$size", detail: "non-array" },
+      );
+    }
+    return traceWrappedTree(
+      this,
+      record.length,
+      "size",
+      `Size(len=${record.length})`,
+      this.inner,
+      false,
+      { order, operator: "$size" },
+    );
   }
 }
 

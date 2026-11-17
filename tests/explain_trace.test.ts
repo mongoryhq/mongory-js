@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { compileMatcher } from "../src/index.js";
+import { compileMatcher, withConverter, withOperator } from "../src/index.js";
 
 test("explain renders priority-sorted tree", () => {
   const m = compileMatcher({
@@ -57,4 +57,239 @@ test("trace handles PASS, FAIL, SKIP, empty branches, $size, $elemMatch, $every,
   const { explain, trace, match } = m;
   assert.equal(typeof explain(), "string");
   assert.equal(trace({ status: "active", age: 20, tags: ["ts"] }).matched, match({ status: "active", age: 20, tags: ["ts"] }));
+});
+
+test("explainTree returns priority-ordered structured AST nodes", () => {
+  const m = compileMatcher({
+    name: { $regex: "Ann" },
+    age: { $gte: 18 },
+    status: "active",
+  });
+
+  const tree = m.explainTree();
+  assert.equal(tree.kind, "and");
+  assert.equal(tree.operator, "$and");
+  assert.equal(tree.children.length, 3);
+
+  assert.deepEqual(
+    tree.children.map((c) => c.field),
+    ["status", "age", "name"],
+  );
+  assert.deepEqual(
+    tree.children.map((c) => c.order),
+    [0, 1, 2],
+  );
+  assert.ok(tree.children[0].priority <= tree.children[1].priority);
+  assert.ok(tree.children[1].priority <= tree.children[2].priority);
+
+  assert.equal(tree.children[0].children[0].kind, "operator");
+  assert.equal(tree.children[0].children[0].operator, "$eq");
+  assert.equal(tree.children[1].children[0].operator, "$gte");
+  assert.equal(tree.children[2].children[0].operator, "$regex");
+
+  const emptyAnd = compileMatcher({}).explainTree();
+  assert.equal(emptyAnd.kind, "and");
+  assert.equal(emptyAnd.detail, "empty");
+
+  const emptyOr = compileMatcher({ $or: [] }).explainTree();
+  assert.equal(emptyOr.kind, "or");
+  assert.equal(emptyOr.detail, "empty");
+
+  const { explainTree } = m;
+  assert.deepEqual(explainTree(), tree);
+});
+
+test("traceTree records PASS, FAIL, and recursive SKIP short-circuit states", () => {
+  const andMatcher = compileMatcher({
+    status: "active",
+    age: { $gte: 18 },
+    tags: { $elemMatch: { $eq: "ts" } },
+  });
+
+  const failFast = andMatcher.traceTree({ status: "inactive", age: 25, tags: ["ts"] });
+  assert.equal(failFast.matched, false);
+  assert.equal(failFast.tree.kind, "and");
+  assert.equal(failFast.tree.status, "FAIL");
+  assert.equal(failFast.tree.children.length, 3);
+  assert.equal(failFast.tree.children[0].status, "FAIL");
+  assert.equal(failFast.tree.children[0].field, "status");
+  assert.equal(failFast.tree.children[0].value, "inactive");
+
+  // Sibling subtrees after short-circuit are recursively marked SKIP
+  const skippedAge = failFast.tree.children[1];
+  assert.equal(skippedAge.status, "SKIP");
+  assert.equal(skippedAge.detail, "short-circuited");
+  assert.equal(skippedAge.children[0].status, "SKIP");
+  assert.equal(skippedAge.children[0].detail, "short-circuited");
+
+  const skippedTags = failFast.tree.children[2];
+  assert.equal(skippedTags.status, "SKIP");
+  assert.equal(skippedTags.children[0].kind, "elemMatch");
+  assert.equal(skippedTags.children[0].status, "SKIP");
+
+  // $or short-circuits remaining branches on first PASS
+  const orMatcher = compileMatcher({
+    $or: [{ role: "admin" }, { active: true }],
+  });
+  const orPass = orMatcher.traceTree({ role: "admin", active: false });
+  assert.equal(orPass.matched, true);
+  assert.equal(orPass.tree.kind, "or");
+  assert.equal(orPass.tree.children[0].status, "PASS");
+  assert.equal(orPass.tree.children[1].status, "SKIP");
+  assert.equal(orPass.tree.children[1].detail, "short-circuited");
+
+  // $not inverts inner status
+  const notMatcher = compileMatcher({ status: { $not: "banned" } });
+  const notRes = notMatcher.traceTree({ status: "active" });
+  assert.equal(notRes.matched, true);
+  const notNode = notRes.tree.children[0];
+  assert.equal(notNode.kind, "not");
+  assert.equal(notNode.operator, "$not");
+  assert.equal(notNode.status, "PASS");
+  assert.equal(notNode.children[0].status, "FAIL");
+
+  const { traceTree } = andMatcher;
+  assert.deepEqual(traceTree({ status: "inactive", age: 25, tags: ["ts"] }), failFast);
+});
+
+test("traceTree handles arrays ($elemMatch/$every/$size), non-container, missing, and custom/converter nodes", () => {
+  // $elemMatch element + skip node
+  const elemMatcher = compileMatcher({ tags: { $elemMatch: { $eq: "ts" } } });
+  const elemRes = elemMatcher.traceTree({ tags: ["go", "ts", "c"] });
+  assert.equal(elemRes.matched, true);
+  const elemNode = elemRes.tree.children[0];
+  assert.equal(elemNode.kind, "elemMatch");
+  assert.equal(elemNode.children.length, 3);
+  assert.equal(elemNode.children[0].kind, "element");
+  assert.equal(elemNode.children[0].index, 0);
+  assert.equal(elemNode.children[0].status, "FAIL");
+  assert.equal(elemNode.children[1].kind, "element");
+  assert.equal(elemNode.children[1].index, 1);
+  assert.equal(elemNode.children[1].status, "PASS");
+  assert.equal(elemNode.children[2].kind, "skip");
+  assert.equal(elemNode.children[2].status, "SKIP");
+  assert.equal(elemNode.children[2].skippedCount, 1);
+  assert.equal(elemNode.children[2].detail, "short-circuited");
+
+  // Empty array & non-array inside $elemMatch / $every
+  const emptyArr = elemMatcher.traceTree({ tags: [] });
+  assert.equal(emptyArr.matched, false);
+  assert.equal(emptyArr.tree.children[0].detail, "empty-array");
+  assert.equal(emptyArr.tree.children[0].children[0].status, "SKIP");
+  assert.equal(emptyArr.tree.children[0].children[0].detail, "empty-array");
+
+  const everyMatcher = compileMatcher({ scores: { $every: { $gte: 60 } } });
+  const everyNonArr = everyMatcher.traceTree({ scores: "bad" });
+  assert.equal(everyNonArr.matched, false);
+  assert.equal(everyNonArr.tree.children[0].kind, "every");
+  assert.equal(everyNonArr.tree.children[0].detail, "non-array");
+  assert.equal(everyNonArr.tree.children[0].children[0].status, "SKIP");
+
+  const everyShortCircuit = everyMatcher.traceTree({ scores: [80, 40, 95] });
+  assert.equal(everyShortCircuit.matched, false);
+  assert.equal(everyShortCircuit.tree.children[0].children[2].kind, "skip");
+  assert.equal(everyShortCircuit.tree.children[0].children[2].skippedCount, 1);
+
+  // $size on array and non-array
+  const sizeMatcher = compileMatcher({ items: { $size: { $gte: 2 } } });
+  const sizePass = sizeMatcher.traceTree({ items: [1, 2, 3] });
+  assert.equal(sizePass.matched, true);
+  assert.equal(sizePass.tree.children[0].kind, "size");
+  assert.equal(sizePass.tree.children[0].value, 3);
+  const sizeFail = sizeMatcher.traceTree({ items: "abc" });
+  assert.equal(sizeFail.matched, false);
+  assert.equal(sizeFail.tree.children[0].detail, "non-array");
+  assert.equal(sizeFail.tree.children[0].children[0].status, "SKIP");
+  assert.equal(sizeFail.tree.children[0].children[0].detail, "non-array");
+
+  // Non-container field extraction + missing field snapshot
+  const nestedMatcher = compileMatcher({ "profile.age": { $gte: 18 } });
+  const nonContainer = nestedMatcher.traceTree({ profile: 42 });
+  assert.equal(nonContainer.matched, false);
+  assert.equal(nonContainer.tree.kind, "field");
+  assert.equal(nonContainer.tree.field, "profile");
+  assert.equal(nonContainer.tree.status, "FAIL");
+  assert.equal(nonContainer.tree.children[0].field, "age");
+  assert.equal(nonContainer.tree.children[0].status, "FAIL");
+  assert.equal(nonContainer.tree.children[0].detail, "non-container");
+  assert.equal(nonContainer.tree.children[0].children[0].status, "SKIP");
+  assert.equal(nonContainer.tree.children[0].children[0].detail, "non-container");
+
+  const missingField = nestedMatcher.traceTree({});
+  assert.equal(missingField.matched, false);
+  assert.equal(missingField.tree.exists, false);
+  assert.equal(missingField.tree.valueText, "<missing>");
+  assert.equal("value" in missingField.tree, false);
+  assert.equal(missingField.tree.children[0].status, "FAIL");
+  assert.equal(missingField.tree.children[0].detail, "non-container");
+
+  // ConvValueNode (RegExp + null) & CustomOpNode
+  class Wrapper {
+    constructor(readonly raw: string | null) {}
+  }
+  const customMatcher = compileMatcher(
+    {
+      label: /^ok/i,
+      empty: null,
+      code: { $starts: "MN-" },
+    },
+    withConverter(Wrapper, (w) => w.raw),
+    withOperator("$starts", {
+      compile(prefix) {
+        return (val, exists) => exists && typeof val === "string" && val.startsWith(String(prefix));
+      },
+    }),
+  );
+  const customRes = customMatcher.traceTree({
+    label: new Wrapper("OK-1"),
+    empty: new Wrapper(null),
+    code: "MN-42",
+  });
+  assert.equal(customRes.matched, true);
+  assert.equal(customRes.tree.status, "PASS");
+  const customLeaf = customRes.tree.children.find((c) => c.field === "code")?.children[0];
+  assert.equal(customLeaf?.kind, "custom");
+  assert.equal(customLeaf?.operator, "$starts");
+  const expCustom = customMatcher.explainTree();
+  assert.equal(expCustom.children.find((c) => c.field === "code")?.children[0].kind, "custom");
+});
+
+test("traceTree snapshot output is always JSON-serializable for exotic and cyclic values", () => {
+  const m = compileMatcher({ v: { $exists: true } });
+
+  const sample = {
+    big: 42n,
+    nan: Number.NaN,
+    posInf: Number.POSITIVE_INFINITY,
+    negInf: Number.NEGATIVE_INFINITY,
+    negZero: -0,
+    date: new Date("2025-01-01T00:00:00.000Z"),
+    long: "x".repeat(80),
+    wideArr: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    zDeep: { a: { b: { c: { d: 1 } } } },
+  };
+
+  const res = m.traceTree({ v: sample });
+  assert.equal(res.matched, true);
+  const parsed = JSON.parse(JSON.stringify(res)) as {
+    matched: boolean;
+    tree: { children: Array<{ value: Record<string, unknown> }> };
+  };
+  const snap = parsed.tree.children[0].value;
+  assert.equal(snap.big, "42n");
+  assert.equal(snap.nan, "NaN");
+  assert.equal(snap.posInf, "Infinity");
+  assert.equal(snap.negInf, "-Infinity");
+  assert.equal(snap.negZero, "-0");
+  assert.equal(snap.date, "2025-01-01T00:00:00.000Z");
+  assert.ok(typeof snap.long === "string" && snap.long.endsWith("..."));
+  assert.deepEqual((snap.wideArr as unknown[]).slice(-1), ["...(+2)"]);
+  assert.equal(snap["..."], "(+1 keys)");
+
+  const cyclic: Record<string, unknown> = { ok: true };
+  cyclic.self = cyclic;
+  const cycParsed = JSON.parse(JSON.stringify(m.traceTree({ v: cyclic }))) as {
+    tree: { children: Array<{ value: Record<string, unknown> }> };
+  };
+  assert.equal(cycParsed.tree.children[0].value.self, "<cycle>");
 });

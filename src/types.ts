@@ -29,6 +29,69 @@ export interface TraceResult {
 }
 
 /**
+ * Evaluation outcome for a node in {@link TraceNode}.
+ */
+export type TraceStatus = "PASS" | "FAIL" | "SKIP";
+
+/**
+ * Structural node kind emitted by `explainTree()` and `traceTree()`.
+ */
+export type MatcherNodeKind =
+  | "and"
+  | "or"
+  | "not"
+  | "field"
+  | "elemMatch"
+  | "every"
+  | "element"
+  | "size"
+  | "operator"
+  | "custom"
+  | "skip";
+
+/**
+ * Structured compiled AST node returned by `Matcher.explainTree()`.
+ */
+export interface ExplainNode {
+  kind: Exclude<MatcherNodeKind, "element" | "skip">;
+  label: string;
+  priority: number;
+  order?: number;
+  operator?: string;
+  field?: string;
+  detail?: string;
+  children: ExplainNode[];
+}
+
+/**
+ * Structured evaluation trace node returned inside {@link TraceTreeResult}.
+ */
+export interface TraceNode {
+  kind: MatcherNodeKind;
+  status: TraceStatus;
+  label: string;
+  priority: number;
+  order?: number;
+  operator?: string;
+  field?: string;
+  index?: number;
+  skippedCount?: number;
+  valueText?: string;
+  value?: unknown;
+  exists?: boolean;
+  detail?: string;
+  children: TraceNode[];
+}
+
+/**
+ * Result returned by `Matcher.traceTree`.
+ */
+export interface TraceTreeResult {
+  matched: boolean;
+  tree: TraceNode;
+}
+
+/**
  * Constructor type helper for `withConverter`, `withField`, and `withFieldResolver`.
  */
 export type Constructor<T extends object = object> = abstract new (...args: never[]) => T;

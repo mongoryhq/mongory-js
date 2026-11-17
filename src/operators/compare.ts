@@ -1,8 +1,18 @@
 import { CompileContext, OperatorBuilder } from "../compile_ctx.js";
 import { compareNumbers, compareValues, valuesEqual } from "../compare.js";
-import { MatcherNode, formatTraceValue, formatValue, statusLabel, traceLeaf, writeTreeLine } from "../explain.js";
+import {
+  MatcherNode,
+  formatTraceValue,
+  formatValue,
+  makeExplainNode,
+  makeTraceNode,
+  statusLabel,
+  traceLeaf,
+  traceLeafTreeNode,
+  writeTreeLine,
+} from "../explain.js";
 import { CompileConfig } from "../options.js";
-import { MISSING, isRecordObject, sortedOwnKeys } from "../types.js";
+import { ExplainNode, MISSING, TraceNode, isRecordObject, sortedOwnKeys } from "../types.js";
 
 export class ConvValueNode implements MatcherNode {
   constructor(
@@ -37,6 +47,23 @@ export class ConvValueNode implements MatcherNode {
     }
     writeTreeLine(lines, prefix, isLast, isRoot, `[${statusLabel(matched)}] ${label} | value=${formatTraceValue(record)}`);
     return matched;
+  }
+
+  explainTree(order?: number): ExplainNode {
+    return this.inner.explainTree(order);
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    const exp = this.inner.explainTree(order);
+    return makeTraceNode(
+      exp.kind,
+      this.match(record),
+      exp.label,
+      exp.priority,
+      record,
+      [],
+      { order, operator: exp.operator },
+    );
   }
 }
 
@@ -146,6 +173,22 @@ abstract class BaseEqNode implements MatcherNode {
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
     return traceLeaf(this, record, lines, prefix, isLast, isRoot, this.label());
   }
+
+  explainTree(order?: number): ExplainNode {
+    const op = this.negate ? "$ne" : "$eq";
+    return makeExplainNode("operator", this.label(), this.priority(), [], {
+      order,
+      operator: op,
+    });
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    const op = this.negate ? "$ne" : "$eq";
+    return traceLeafTreeNode(this, record, "operator", this.label(), {
+      order,
+      operator: op,
+    });
+  }
 }
 
 export class EqNode extends BaseEqNode {
@@ -248,6 +291,24 @@ abstract class BaseOrderNode implements MatcherNode {
 
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
     return traceLeaf(this, record, lines, prefix, isLast, isRoot, this.label());
+  }
+
+  private opName(): string {
+    return `$${ORDER_NAMES[this.kind].toLowerCase()}`;
+  }
+
+  explainTree(order?: number): ExplainNode {
+    return makeExplainNode("operator", this.label(), this.priority(), [], {
+      order,
+      operator: this.opName(),
+    });
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    return traceLeafTreeNode(this, record, "operator", this.label(), {
+      order,
+      operator: this.opName(),
+    });
   }
 }
 

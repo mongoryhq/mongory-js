@@ -1,0 +1,12 @@
+# Changelog
+
+## 0.1.0 (2026-11-18)
+
+### Added
+
+- Zero-dependency pure TypeScript Mongory query compiler and evaluator targeting ES2022 runtimes (browsers, Node.js >= 20, Bun, Deno, Edge) with dual ESM/CJS builds and TypeScript declarations.
+- Full `mongory-spec v0.2.0` conformance across all 17 operators (`$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin`, `$exists`, `$present`, `$and`, `$or`, `$not`, `$elemMatch`, `$every`, `$size`, `$regex` + `$options`).
+- Hybrid collision-free API: `mongory` namespace (plus `default` export) alongside tree-shakable named exports (`compileMatcher`, `matchCondition`, `mongoryAnd`, `mongoryOr`, `Matcher`, `MISSING`, error classes, and compile-scoped options).
+- Compile-scoped extensibility (`withOptions`, `withConverter`, `withField`, `withFieldResolver`, `withOperator`, `withMaxDepth`, `withMaxNodes`) with no global singleton state.
+- Human-readable debugging (`Matcher.explain()`, `Matcher.trace(record)`) and structured JSON-serializable AST/evaluation trees (`Matcher.explainTree()`, `Matcher.traceTree(record)`) for UI and devtools integration.
+- Security and performance hardening: cyclic condition rejection, `maxDepth` (`64`) / `maxNodes` (`4096`) limits, `__proto__` guard, bucketed O(1) `$in`/`$nin` `Set` lookup (`>= 16` elements), and monomorphic hot-path scalar/order specialization.

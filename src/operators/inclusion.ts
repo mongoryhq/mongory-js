@@ -1,9 +1,16 @@
 import { CompileContext, OperatorBuilder, invalidCondition } from "../compile_ctx.js";
 import { valuesEqual } from "../compare.js";
-import { MatcherNode, formatValue, traceLeaf, writeTreeLine } from "../explain.js";
+import {
+  MatcherNode,
+  formatValue,
+  makeExplainNode,
+  traceLeaf,
+  traceLeafTreeNode,
+  writeTreeLine,
+} from "../explain.js";
 import { describeType } from "../normalize.js";
 import { CompileConfig } from "../options.js";
-import { MISSING } from "../types.js";
+import { ExplainNode, MISSING, TraceNode } from "../types.js";
 import { valuesEqualConv } from "./compare.js";
 
 export const IN_SET_THRESHOLD = 16;
@@ -170,6 +177,20 @@ class StringInNode implements MatcherNode {
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
     return traceLeaf(this, record, lines, prefix, isLast, isRoot, this.label());
   }
+
+  explainTree(order?: number): ExplainNode {
+    return makeExplainNode("operator", this.label(), this.priority(), [], {
+      order,
+      operator: this.negate ? "$nin" : "$in",
+    });
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    return traceLeafTreeNode(this, record, "operator", this.label(), {
+      order,
+      operator: this.negate ? "$nin" : "$in",
+    });
+  }
 }
 
 class InNode implements MatcherNode {
@@ -228,6 +249,20 @@ class InNode implements MatcherNode {
 
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
     return traceLeaf(this, record, lines, prefix, isLast, isRoot, this.label());
+  }
+
+  explainTree(order?: number): ExplainNode {
+    return makeExplainNode("operator", this.label(), this.priority(), [], {
+      order,
+      operator: this.negate ? "$nin" : "$in",
+    });
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    return traceLeafTreeNode(this, record, "operator", this.label(), {
+      order,
+      operator: this.negate ? "$nin" : "$in",
+    });
   }
 }
 
@@ -294,6 +329,17 @@ class InConvNode implements MatcherNode {
 
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
     return traceLeaf(this, record, lines, prefix, isLast, isRoot, this.base.label());
+  }
+
+  explainTree(order?: number): ExplainNode {
+    return this.base.explainTree(order);
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    return traceLeafTreeNode(this, record, "operator", this.base.label(), {
+      order,
+      operator: this.base.negate ? "$nin" : "$in",
+    });
   }
 }
 

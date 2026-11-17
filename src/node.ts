@@ -1,5 +1,17 @@
 import { CompileContext, OperatorBuilder, TreeBuilderHooks, invalidCondition, sortByPriority } from "./compile_ctx.js";
-import { MatcherNode, explainBranch, formatTraceValue, traceLeaf, traceWrapped, writeTreeLine } from "./explain.js";
+import {
+  MatcherNode,
+  explainBranch,
+  formatTraceValue,
+  makeExplainNode,
+  makeTraceNode,
+  markTreeSkipped,
+  traceLeaf,
+  traceLeafTreeNode,
+  traceWrapped,
+  traceWrappedTree,
+  writeTreeLine,
+} from "./explain.js";
 import { cloneStatelessRegExp } from "./normalize.js";
 import { CompileConfig } from "./options.js";
 import { buildElemMatchNode, registerArrayOperators } from "./operators/array.js";
@@ -10,7 +22,16 @@ import { buildCustomOpNode } from "./operators/custom.js";
 import { registerExistenceOperators } from "./operators/existence.js";
 import { registerInclusionOperators } from "./operators/inclusion.js";
 import { RegexNode, buildRegexNode } from "./operators/regex.js";
-import { Condition, MISSING, isPlainObject, parseIndexKey, setOwnProp, sortedOwnKeys } from "./types.js";
+import {
+  Condition,
+  ExplainNode,
+  MISSING,
+  TraceNode,
+  isPlainObject,
+  parseIndexKey,
+  setOwnProp,
+  sortedOwnKeys,
+} from "./types.js";
 
 const BUILTIN_BUILDERS: ReadonlyMap<string, OperatorBuilder> = (() => {
   const map = new Map<string, OperatorBuilder>();
@@ -39,6 +60,20 @@ class NullNode implements MatcherNode {
 
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
     return traceLeaf(this, record, lines, prefix, isLast, isRoot, "Eq(nil) | NotExists");
+  }
+
+  explainTree(order?: number): ExplainNode {
+    return makeExplainNode("operator", "Eq(nil) | NotExists", this.priority(), [], {
+      order,
+      operator: "$eq",
+    });
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    return traceLeafTreeNode(this, record, "operator", "Eq(nil) | NotExists", {
+      order,
+      operator: "$eq",
+    });
   }
 }
 
@@ -115,6 +150,36 @@ class FieldNode implements MatcherNode {
     }
     return traceWrapped(val, lines, prefix, isLast, isRoot, `Field(${JSON.stringify(this.field)})`, this.literal, false);
   }
+
+  explainTree(order?: number): ExplainNode {
+    return makeExplainNode(
+      "field",
+      `Field(${JSON.stringify(this.field)})`,
+      this.priority(),
+      [this.literal.explainTree()],
+      { order, field: this.field },
+    );
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    const label = `Field(${JSON.stringify(this.field)})`;
+    const val = this.extract(record);
+    if (val === INVALID_CONTAINER) {
+      return makeTraceNode(
+        "field",
+        false,
+        label,
+        this.priority(),
+        record,
+        [markTreeSkipped(this.literal.explainTree(), "non-container")],
+        { order, field: this.field, detail: "non-container" },
+      );
+    }
+    return traceWrappedTree(this, val, "field", label, this.literal, false, {
+      order,
+      field: this.field,
+    });
+  }
 }
 
 const INVALID_CONTAINER = Symbol("mongory.invalidContainer");
@@ -176,6 +241,17 @@ class LiteralNode implements MatcherNode {
     }
     return this.dispatched.trace(record, lines, prefix, isLast, isRoot);
   }
+
+  explainTree(order?: number): ExplainNode {
+    return this.dispatched.explainTree(order);
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    if (Array.isArray(record)) {
+      return this.ensureArrayRecord().traceTree(record, order);
+    }
+    return this.dispatched.traceTree(record, order);
+  }
 }
 
 class ExtLiteralNode extends LiteralNode {
@@ -219,6 +295,19 @@ class ExtLiteralNode extends LiteralNode {
       }
     }
     return this.dispatched.trace(record, lines, prefix, isLast, isRoot);
+  }
+
+  override traceTree(record: unknown, order?: number): TraceNode {
+    if (Array.isArray(record)) {
+      return this.ensureArrayRecord().traceTree(record, order);
+    }
+    if (this.convertArrayContainer && record !== null && typeof record === "object") {
+      const converted = this.arrayCtx.cfg.applyConverter(record);
+      if (Array.isArray(converted)) {
+        return this.ensureArrayRecord().traceTree(converted, order);
+      }
+    }
+    return this.dispatched.traceTree(record, order);
   }
 }
 

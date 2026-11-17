@@ -1,6 +1,13 @@
 import { CompileContext, invalidCondition } from "../compile_ctx.js";
-import { MatcherNode, formatValue, traceLeaf, writeTreeLine } from "../explain.js";
-import { CustomOperator, MISSING, Predicate } from "../types.js";
+import {
+  MatcherNode,
+  formatValue,
+  makeExplainNode,
+  traceLeaf,
+  traceLeafTreeNode,
+  writeTreeLine,
+} from "../explain.js";
+import { CustomOperator, ExplainNode, MISSING, Predicate, TraceNode } from "../types.js";
 
 export class CustomOpNode implements MatcherNode {
   private readonly priorityWeight: number;
@@ -35,6 +42,20 @@ export class CustomOpNode implements MatcherNode {
 
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
     return traceLeaf(this, record, lines, prefix, isLast, isRoot, this.label());
+  }
+
+  explainTree(order?: number): ExplainNode {
+    return makeExplainNode("custom", this.label(), this.priority(), [], {
+      order,
+      operator: this.name,
+    });
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    return traceLeafTreeNode(this, record, "custom", this.label(), {
+      order,
+      operator: this.name,
+    });
   }
 }
 
