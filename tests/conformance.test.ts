@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { MongoryInvalidConditionError, compile } from "../src/index.js";
+import { MongoryInvalidConditionError, compileMatcher } from "../src/index.js";
 import { Condition } from "../src/types.js";
 
 interface SpecRecord {
@@ -74,13 +74,13 @@ for (const dir of CONFORMANCE_DIRS) {
       test(`spec:${dir}/${file}:${suite.description}`, () => {
         if (suite.error) {
           assert.throws(
-            () => compile(suite.condition),
+            () => compileMatcher(suite.condition),
             MongoryInvalidConditionError,
             `expected error for condition ${JSON.stringify(suite.condition)}`,
           );
           return;
         }
-        const matcher = compile(suite.condition);
+        const matcher = compileMatcher(suite.condition);
         const records = suite.records ?? [];
         assert.ok(records.length > 0, `expected non-empty records for ${suite.description}`);
         for (const rec of records) {

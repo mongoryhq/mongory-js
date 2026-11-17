@@ -6,7 +6,7 @@ import {
   MongoryInvalidConditionError,
   MongoryInvalidOptionError,
   MongoryLimitExceededError,
-  compile,
+  compileMatcher as compile,
   withMaxDepth,
   withMaxNodes,
 } from "../src/index.js";

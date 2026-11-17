@@ -56,7 +56,7 @@
     "build": "npm run clean && npm run build:esm && npm run build:cjs",
     "test:node": "tsc -p tsconfig.test.json && node --test dist-test/tests/*.test.js",
     "test:bun": "bun test tests/conformance.test.ts tests/matcher.test.ts tests/limits_and_cycles.test.ts tests/options_and_builders.test.ts tests/explain_trace.test.ts",
-    "test:smoke": "node -e \"Promise.all([import('mongory'),Promise.resolve(require('mongory'))]).then(([e,c])=>{const k='\\x24gte';const q={age:{[k]:18}};if(!e.compile(q).match({age:20})||!c.compile(q).match({age:20}))process.exit(1);}).catch(err=>{console.error(err);process.exit(1);})\"",
+    "test:smoke": "node -e \"Promise.all([import('mongory'),Promise.resolve(require('mongory'))]).then(([e,c])=>{const k='\\x24gte';const q={age:{[k]:18}};if(!e.mongory.compile(q).match({age:20})||!e.default.compile(q).match({age:20})||!e.compileMatcher(q).match({age:20})||!c.mongory.compile(q).match({age:20})||!c.compileMatcher(q).match({age:20}))process.exit(1);}).catch(err=>{console.error(err);process.exit(1);})\"",
     "test": "npm run typecheck && npm run build && npm run test:smoke && npm run test:node"
   },
   "devDependencies": {

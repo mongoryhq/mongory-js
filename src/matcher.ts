@@ -54,43 +54,84 @@ export class Matcher {
    * Returns all records matching this matcher, preserving order.
    */
   filter<T>(records: Iterable<T>): T[] {
-    return filter(records, this);
+    const out: T[] = [];
+    for (const r of records) {
+      if (this.match(r)) {
+        out.push(r);
+      }
+    }
+    return out;
   }
 
   /**
    * Returns up to `limit` records matching this matcher, stopping early once `limit`
-   * matches are found. `limit === 0` returns `[]`; `limit < 0` is unbounded.
+   * matches are found. `limit === 0` or `NaN` returns `[]`; `limit < 0` is unbounded.
    */
   filterLimit<T>(records: Iterable<T>, limit: number): T[] {
-    return filterLimit(records, this, limit);
+    if (limit === 0 || Number.isNaN(limit)) {
+      return [];
+    }
+    if (limit < 0 || !Number.isFinite(limit)) {
+      return this.filter(records);
+    }
+    const max = Math.trunc(limit);
+    if (max <= 0) {
+      return [];
+    }
+    const out: T[] = [];
+    for (const r of records) {
+      if (this.match(r)) {
+        out.push(r);
+        if (out.length >= max) {
+          return out;
+        }
+      }
+    }
+    return out;
   }
 
   /**
    * Returns the first record matching this matcher, or `undefined`.
    */
   find<T>(records: Iterable<T>): T | undefined {
-    return find(records, this);
+    for (const r of records) {
+      if (this.match(r)) {
+        return r;
+      }
+    }
+    return undefined;
   }
 
   /**
    * Reports whether any record in `records` matches this matcher.
    */
   any(records: Iterable<unknown>): boolean {
-    return any(records, this);
+    for (const r of records) {
+      if (this.match(r)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
    * Returns the number of matching records in `records`.
    */
   count(records: Iterable<unknown>): number {
-    return count(records, this);
+    let n = 0;
+    for (const r of records) {
+      if (this.match(r)) {
+        n++;
+      }
+    }
+    return n;
   }
 }
 
 /**
  * Compiles a Mongory condition once into an immutable {@link Matcher}.
  */
-export function compile(
+export function compileMatcher(
   condition?: ConditionInput,
   ...options: Array<CompileOption | null | undefined>
 ): Matcher {
@@ -103,87 +144,10 @@ export function compile(
 /**
  * Convenience one-shot compile and evaluate helper.
  */
-export function match(
+export function matchCondition(
   condition: ConditionInput,
   record: unknown,
   ...options: Array<CompileOption | null | undefined>
 ): boolean {
-  return compile(condition, ...options).match(record);
-}
-
-/**
- * Returns every element in `records` matching `matcher`, preserving order.
- */
-export function filter<T>(records: Iterable<T>, matcher: Matcher): T[] {
-  const out: T[] = [];
-  for (const r of records) {
-    if (matcher.match(r)) {
-      out.push(r);
-    }
-  }
-  return out;
-}
-
-/**
- * Returns up to `limit` elements in `records` matching `matcher`, stopping early.
- * `limit === 0` or `NaN` returns `[]`; negative `limit` returns all matches.
- */
-export function filterLimit<T>(records: Iterable<T>, matcher: Matcher, limit: number): T[] {
-  if (limit === 0 || Number.isNaN(limit)) {
-    return [];
-  }
-  if (limit < 0 || !Number.isFinite(limit)) {
-    return filter(records, matcher);
-  }
-  const max = Math.trunc(limit);
-  if (max <= 0) {
-    return [];
-  }
-  const out: T[] = [];
-  for (const r of records) {
-    if (matcher.match(r)) {
-      out.push(r);
-      if (out.length >= max) {
-        return out;
-      }
-    }
-  }
-  return out;
-}
-
-/**
- * Returns the first element in `records` matching `matcher`, or `undefined`.
- */
-export function find<T>(records: Iterable<T>, matcher: Matcher): T | undefined {
-  for (const r of records) {
-    if (matcher.match(r)) {
-      return r;
-    }
-  }
-  return undefined;
-}
-
-/**
- * Reports whether at least one element in `records` matches `matcher`.
- */
-export function any(records: Iterable<unknown>, matcher: Matcher): boolean {
-  for (const r of records) {
-    if (matcher.match(r)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Returns the number of elements in `records` matching `matcher`.
- */
-export function count(records: Iterable<unknown>, matcher: Matcher): number {
-  let n = 0;
-  for (const r of records) {
-    if (matcher.match(r)) {
-      n++;
-    }
-  }
-  return n;
+  return compileMatcher(condition, ...options).match(record);
 }

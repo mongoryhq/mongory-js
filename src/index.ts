@@ -1,3 +1,16 @@
+import { and as mongoryAnd, or as mongoryOr } from "./combinators.js";
+import { Matcher, compileMatcher, matchCondition } from "./matcher.js";
+import {
+  withConverter,
+  withField,
+  withFieldResolver,
+  withMaxDepth,
+  withMaxNodes,
+  withOperator,
+  withOptions,
+} from "./options.js";
+import { DEFAULT_MAX_DEPTH, DEFAULT_MAX_NODES, MISSING } from "./types.js";
+
 export {
   DEFAULT_MAX_DEPTH,
   DEFAULT_MAX_NODES,
@@ -30,15 +43,34 @@ export {
   type CompileOption,
 } from "./options.js";
 
-export { and, or } from "./combinators.js";
+export { mongoryAnd, mongoryOr };
+export { Matcher, compileMatcher, matchCondition };
 
-export {
+/**
+ * Namespace entrypoint for collision-free idiomatic usage (`import { mongory } from "mongory"`).
+ */
+export const mongory = {
+  compile: compileMatcher,
+  match: matchCondition,
+  and: mongoryAnd,
+  or: mongoryOr,
+  filter: <T>(records: Iterable<T>, matcher: Matcher): T[] => matcher.filter(records),
+  filterLimit: <T>(records: Iterable<T>, matcher: Matcher, limit: number): T[] =>
+    matcher.filterLimit(records, limit),
+  find: <T>(records: Iterable<T>, matcher: Matcher): T | undefined => matcher.find(records),
+  any: (records: Iterable<unknown>, matcher: Matcher): boolean => matcher.any(records),
+  count: (records: Iterable<unknown>, matcher: Matcher): number => matcher.count(records),
+  withOptions,
+  withMaxDepth,
+  withMaxNodes,
+  withConverter,
+  withField,
+  withFieldResolver,
+  withOperator,
   Matcher,
-  any,
-  compile,
-  count,
-  filter,
-  filterLimit,
-  find,
-  match,
-} from "./matcher.js";
+  MISSING,
+  DEFAULT_MAX_DEPTH,
+  DEFAULT_MAX_NODES,
+} as const;
+
+export default mongory;

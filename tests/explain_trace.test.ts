@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { compile } from "../src/index.js";
+import { compileMatcher } from "../src/index.js";
 
 test("explain renders priority-sorted tree", () => {
-  const m = compile({
+  const m = compileMatcher({
     name: { $regex: "Ann" },
     age: { $gte: 18 },
     status: "active",
@@ -18,7 +18,7 @@ test("explain renders priority-sorted tree", () => {
 });
 
 test("trace handles PASS, FAIL, SKIP, empty branches, $size, $elemMatch, $every, and long strings", () => {
-  const m = compile({
+  const m = compileMatcher({
     status: "active",
     age: { $gte: 18 },
     tags: { $elemMatch: { $eq: "ts" } },
@@ -40,16 +40,16 @@ test("trace handles PASS, FAIL, SKIP, empty branches, $size, $elemMatch, $every,
   assert.ok(passRes.trace.includes("..."));
 
   // Empty $and / $or / $size / $not / -0 / bigint formatting
-  const emptyAnd = compile({});
+  const emptyAnd = compileMatcher({});
   assert.equal(emptyAnd.explain(), "And (empty)\n");
   assert.equal(emptyAnd.trace(-0).trace, "[PASS] And (empty) | value=-0\n");
 
-  const emptyOr = compile({ $or: [] });
+  const emptyOr = compileMatcher({ $or: [] });
   assert.equal(emptyOr.explain(), "Or (empty)\n");
   assert.equal(emptyOr.trace(42n).matched, false);
   assert.ok(emptyOr.trace(42n).trace.includes("value=42n"));
 
-  const sizeMatcher = compile({ items: { $size: { $gte: 2 } } });
+  const sizeMatcher = compileMatcher({ items: { $size: { $gte: 2 } } });
   assert.equal(sizeMatcher.trace({ items: [1, 2, 3] }).matched, true);
   assert.ok(sizeMatcher.trace({ items: "abc" }).trace.includes("[FAIL] Size"));
 

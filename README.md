@@ -5,16 +5,18 @@ Zero-dependency, pure TypeScript MongoDB-style in-memory query matcher for JavaS
 ## Features
 
 - **Zero runtime dependencies** (ships ESM + CJS + `.d.ts`)
+- **Collision-free TS exports**: use the `mongory` namespace (`import { mongory } from "mongory"` or default import) or tree-shakable named exports (`compileMatcher`, `matchCondition`, `mongoryAnd`, `mongoryOr`) without colliding with `drizzle-orm`, `lodash`, or native `Array` helpers
 - **All 17 Mongory operators**: `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin`, `$exists`, `$present`, `$and`, `$or`, `$not`, `$elemMatch`, `$every`, `$size`, `$regex` (with `$options`: `i`, `m`, `s`)
 - **MongoDB & edge-case fidelity**: `null` vs missing key (`MISSING`), dot notation & escaped dots (`\.`), canonical array index lookup (`"0"`, `"-1"` vs `"01"`), implicit `$elemMatch`, stateless `RegExp` cloning (`/g` & `/y` safe), exact `number` vs `bigint` comparisons without `2^53` precision loss, `Date` & `Uint8Array` support, prototype pollution (`__proto__`) protection
 - **Safety limits & DoS defense**: configurable `maxDepth` (default `64`) and `maxNodes` (default `4096`), circular reference rejection (`MongoryInvalidConditionError`), O(1) bucketed `Set` lookup for large `$in`/`$nin` lists (`>= 16` items)
 - **Compile-scoped extensions** (no global singletons): `withOptions`, `withConverter`, `withField`, `withFieldResolver`, `withOperator`
-- **Composability & debugging**: immutable `and(...)` / `or(...)` builders, unbound-safe `matcher.match` (`users.filter(matcher.match)`), `filterLimit`, `find`, `any`, `count`, `explain()`, and `trace(record)`
 
 ## Quick Start
 
+### Namespace style (recommended, mirrors Go `mongory.*`)
+
 ```ts
-import { and, compile, filter, find, or } from "mongory";
+import { mongory } from "mongory";
 
 const users = [
   { name: "Ann", age: 30, tags: ["ts", "go"], active: true },
@@ -22,16 +24,30 @@ const users = [
   { name: "Cid", age: 42, tags: ["ts", "c"], active: false },
 ];
 
-const matcher = compile(
-  and(
+const isEligible = mongory.compile(
+  mongory.and(
     { active: true },
-    or({ tags: "ts" }, { age: { $lt: 18 } }),
+    mongory.or({ tags: "ts" }, { age: { $lt: 18 } }),
   ),
 );
 
-const matched = users.filter(matcher.match); // [Ann, Bob]
-const first = matcher.find(users); // Ann
-const top1 = matcher.filterLimit(users, 1); // [Ann]
+const matched = users.filter(isEligible.match); // [Ann, Bob]
+const first = users.find(isEligible.match); // Ann
+const top1 = isEligible.filterLimit(users, 1); // [Ann]
+```
+
+### Tree-shakable named imports
+
+```ts
+import { compileMatcher, matchCondition, mongoryAnd, mongoryOr } from "mongory";
+
+const matcher = compileMatcher(
+  mongoryAnd(
+    { active: true },
+    mongoryOr({ tags: "ts" }, { age: { $lt: 18 } }),
+  ),
+);
+const ok = matchCondition({ age: { $gte: 18 } }, users[0]); // true
 ```
 
 ### Debugging with `explain()` and `trace()`
@@ -53,6 +69,14 @@ console.log(matched, trace);
 ### Compile-Scoped Extensions
 
 ```ts
+import {
+  mongory,
+  withConverter,
+  withField,
+  withOperator,
+  withOptions,
+} from "mongory";
+
 const domainOptions = withOptions(
   withConverter(ObjectId, (id) => id.toHexString()),
   withField<Order>("total", (o) => o.price * o.qty),
@@ -68,7 +92,7 @@ const domainOptions = withOptions(
   }),
 );
 
-const m = compile({ price: { $moneyGte: new Money("USD", 100) } }, domainOptions);
+const m = mongory.compile({ price: { $moneyGte: new Money("USD", 100) } }, domainOptions);
 ```
 
 ## Conformance & Development

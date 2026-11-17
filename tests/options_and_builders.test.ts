@@ -4,9 +4,10 @@ import {
   MISSING,
   MongoryInvalidConditionError,
   MongoryInvalidOptionError,
-  and,
-  compile,
-  or,
+  mongoryAnd as and,
+  compileMatcher as compile,
+  mongory,
+  mongoryOr as or,
   withConverter,
   withField,
   withFieldResolver,
@@ -298,4 +299,6 @@ test("and and or combinators semantics, immutability, deduplication, and empty s
   assert.deepEqual(or({ status: "a" }, {}, { status: "b" }), {});
   assert.equal(compile(or({ status: "a" }, {}, { status: "b" })).match({}), true);
   assert.deepEqual(or({ $or: [{ a: 1 }, { b: 2 }] }, { a: 1 }, null), { $or: [{ a: 1 }, { b: 2 }] });
+  assert.deepEqual(mongory.and({ a: 1 }, { b: 2 }), { a: 1, b: 2 });
+  assert.deepEqual(mongory.or({ a: 1 }, { b: 2 }), { $or: [{ a: 1 }, { b: 2 }] });
 });
