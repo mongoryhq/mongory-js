@@ -55,8 +55,18 @@ export class Matcher {
    */
   filter<T>(records: Iterable<T>): T[] {
     const out: T[] = [];
+    if (Array.isArray(records)) {
+      const root = this.root;
+      for (let i = 0, len = records.length; i < len; i++) {
+        const r = records[i];
+        if (root.match(r)) {
+          out.push(r);
+        }
+      }
+      return out;
+    }
     for (const r of records) {
-      if (this.match(r)) {
+      if (this.root.match(r)) {
         out.push(r);
       }
     }
@@ -79,8 +89,21 @@ export class Matcher {
       return [];
     }
     const out: T[] = [];
+    if (Array.isArray(records)) {
+      const root = this.root;
+      for (let i = 0, len = records.length; i < len; i++) {
+        const r = records[i];
+        if (root.match(r)) {
+          out.push(r);
+          if (out.length >= max) {
+            return out;
+          }
+        }
+      }
+      return out;
+    }
     for (const r of records) {
-      if (this.match(r)) {
+      if (this.root.match(r)) {
         out.push(r);
         if (out.length >= max) {
           return out;
@@ -94,8 +117,18 @@ export class Matcher {
    * Returns the first record matching this matcher, or `undefined`.
    */
   find<T>(records: Iterable<T>): T | undefined {
+    if (Array.isArray(records)) {
+      const root = this.root;
+      for (let i = 0, len = records.length; i < len; i++) {
+        const r = records[i];
+        if (root.match(r)) {
+          return r;
+        }
+      }
+      return undefined;
+    }
     for (const r of records) {
-      if (this.match(r)) {
+      if (this.root.match(r)) {
         return r;
       }
     }
@@ -106,8 +139,17 @@ export class Matcher {
    * Reports whether any record in `records` matches this matcher.
    */
   any(records: Iterable<unknown>): boolean {
+    if (Array.isArray(records)) {
+      const root = this.root;
+      for (let i = 0, len = records.length; i < len; i++) {
+        if (root.match(records[i])) {
+          return true;
+        }
+      }
+      return false;
+    }
     for (const r of records) {
-      if (this.match(r)) {
+      if (this.root.match(r)) {
         return true;
       }
     }
@@ -119,8 +161,17 @@ export class Matcher {
    */
   count(records: Iterable<unknown>): number {
     let n = 0;
+    if (Array.isArray(records)) {
+      const root = this.root;
+      for (let i = 0, len = records.length; i < len; i++) {
+        if (root.match(records[i])) {
+          n++;
+        }
+      }
+      return n;
+    }
     for (const r of records) {
-      if (this.match(r)) {
+      if (this.root.match(r)) {
         n++;
       }
     }

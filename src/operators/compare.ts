@@ -1,5 +1,5 @@
 import { CompileContext, OperatorBuilder } from "../compile_ctx.js";
-import { compareValues, valuesEqual } from "../compare.js";
+import { compareNumbers, compareValues, valuesEqual } from "../compare.js";
 import { MatcherNode, formatTraceValue, formatValue, statusLabel, traceLeaf, writeTreeLine } from "../explain.js";
 import { CompileConfig } from "../options.js";
 import { MISSING, isRecordObject, sortedOwnKeys } from "../types.js";
@@ -170,31 +170,76 @@ export class EqConvNode extends BaseEqNode {
   }
 }
 
+export class EqScalarNode extends BaseEqNode {
+  private readonly isNumber: boolean;
+
+  constructor(condition: string | boolean | number, negate: boolean) {
+    super(condition, negate);
+    this.isNumber = typeof condition === "number";
+  }
+
+  private equalsScalar(v: unknown): boolean {
+    if (v === this.condition) {
+      return true;
+    }
+    if (this.isNumber && typeof v === "bigint") {
+      return compareNumbers(v, this.condition as number) === 0;
+    }
+    return false;
+  }
+
+  match(record: unknown): boolean {
+    if (this.equalsScalar(record)) {
+      return !this.negate;
+    }
+    if (Array.isArray(record)) {
+      for (let i = 0, len = record.length; i < len; i++) {
+        if (this.equalsScalar(record[i])) {
+          return !this.negate;
+        }
+      }
+    }
+    return this.negate;
+  }
+}
+
 export function buildEqNode(ctx: CompileContext, condition: unknown, negate = false): MatcherNode {
   if (ctx.hasConverters()) {
     return ctx.addNodeMatcher(new EqConvNode(condition, ctx.cfg, negate));
   }
+  if (
+    typeof condition === "string" ||
+    typeof condition === "boolean" ||
+    (typeof condition === "number" && !Number.isNaN(condition))
+  ) {
+    return ctx.addNodeMatcher(new EqScalarNode(condition, negate));
+  }
   return ctx.addNodeMatcher(new EqNode(condition, negate));
 }
 
-class OrderNode implements MatcherNode {
+const enum OrderKind {
+  Gt = 0,
+  Gte = 1,
+  Lt = 2,
+  Lte = 3,
+}
+
+const ORDER_NAMES: ReadonlyArray<string> = ["Gt", "Gte", "Lt", "Lte"];
+
+abstract class BaseOrderNode implements MatcherNode {
   constructor(
-    private readonly op: string,
-    private readonly condition: unknown,
-    private readonly accept: (cmp: number) => boolean,
+    protected readonly kind: OrderKind,
+    protected readonly condition: unknown,
   ) {}
 
-  match(record: unknown): boolean {
-    const cmp = compareValues(record, this.condition);
-    return cmp !== undefined && this.accept(cmp);
-  }
+  abstract match(record: unknown): boolean;
 
   priority(): number {
     return 3;
   }
 
-  private label(): string {
-    return `${this.op}(${formatValue(this.condition)})`;
+  protected label(): string {
+    return `${ORDER_NAMES[this.kind]}(${formatValue(this.condition)})`;
   }
 
   explain(lines: string[], prefix: string, isLast: boolean, isRoot: boolean): void {
@@ -206,9 +251,133 @@ class OrderNode implements MatcherNode {
   }
 }
 
-function makeOrderBuilder(op: string, accept: (cmp: number) => boolean): OperatorBuilder {
+class OrderNumberNode extends BaseOrderNode {
+  constructor(
+    kind: OrderKind,
+    private readonly target: number,
+  ) {
+    super(kind, target);
+  }
+
+  match(record: unknown): boolean {
+    if (typeof record === "number") {
+      switch (this.kind) {
+        case OrderKind.Gt:
+          return record > this.target;
+        case OrderKind.Gte:
+          return record >= this.target;
+        case OrderKind.Lt:
+          return record < this.target;
+        case OrderKind.Lte:
+          return record <= this.target;
+      }
+    }
+    if (typeof record === "bigint") {
+      const cmp = compareNumbers(record, this.target);
+      if (cmp === undefined) {
+        return false;
+      }
+      switch (this.kind) {
+        case OrderKind.Gt:
+          return cmp > 0;
+        case OrderKind.Gte:
+          return cmp >= 0;
+        case OrderKind.Lt:
+          return cmp < 0;
+        case OrderKind.Lte:
+          return cmp <= 0;
+      }
+    }
+    return false;
+  }
+}
+
+class OrderStringNode extends BaseOrderNode {
+  constructor(
+    kind: OrderKind,
+    private readonly target: string,
+  ) {
+    super(kind, target);
+  }
+
+  match(record: unknown): boolean {
+    if (typeof record !== "string") {
+      return false;
+    }
+    switch (this.kind) {
+      case OrderKind.Gt:
+        return record > this.target;
+      case OrderKind.Gte:
+        return record >= this.target;
+      case OrderKind.Lt:
+        return record < this.target;
+      case OrderKind.Lte:
+        return record <= this.target;
+    }
+  }
+}
+
+class OrderDateNode extends BaseOrderNode {
+  private readonly targetTs: number;
+
+  constructor(kind: OrderKind, target: Date) {
+    super(kind, target);
+    this.targetTs = target.getTime();
+  }
+
+  match(record: unknown): boolean {
+    if (!(record instanceof Date)) {
+      return false;
+    }
+    const ts = record.getTime();
+    if (Number.isNaN(ts)) {
+      return false;
+    }
+    switch (this.kind) {
+      case OrderKind.Gt:
+        return ts > this.targetTs;
+      case OrderKind.Gte:
+        return ts >= this.targetTs;
+      case OrderKind.Lt:
+        return ts < this.targetTs;
+      case OrderKind.Lte:
+        return ts <= this.targetTs;
+    }
+  }
+}
+
+class OrderNode extends BaseOrderNode {
+  match(record: unknown): boolean {
+    const cmp = compareValues(record, this.condition);
+    if (cmp === undefined) {
+      return false;
+    }
+    switch (this.kind) {
+      case OrderKind.Gt:
+        return cmp > 0;
+      case OrderKind.Gte:
+        return cmp >= 0;
+      case OrderKind.Lt:
+        return cmp < 0;
+      case OrderKind.Lte:
+        return cmp <= 0;
+    }
+  }
+}
+
+function makeOrderBuilder(kind: OrderKind): OperatorBuilder {
   return (ctx, condition) => {
-    const node = ctx.addNodeMatcher(new OrderNode(op, condition, accept));
+    let raw: MatcherNode;
+    if (typeof condition === "number" && !Number.isNaN(condition)) {
+      raw = new OrderNumberNode(kind, condition);
+    } else if (typeof condition === "string") {
+      raw = new OrderStringNode(kind, condition);
+    } else if (condition instanceof Date && !Number.isNaN(condition.getTime())) {
+      raw = new OrderDateNode(kind, condition);
+    } else {
+      raw = new OrderNode(kind, condition);
+    }
+    const node = ctx.addNodeMatcher(raw);
     if (ctx.hasConverters()) {
       return new ConvValueNode(ctx.cfg, node);
     }
@@ -219,8 +388,8 @@ function makeOrderBuilder(op: string, accept: (cmp: number) => boolean): Operato
 export function registerCompareOperators(registry: Map<string, OperatorBuilder>): void {
   registry.set("$eq", (ctx, cond) => buildEqNode(ctx, cond, false));
   registry.set("$ne", (ctx, cond) => buildEqNode(ctx, cond, true));
-  registry.set("$gt", makeOrderBuilder("Gt", (c) => c > 0));
-  registry.set("$gte", makeOrderBuilder("Gte", (c) => c >= 0));
-  registry.set("$lt", makeOrderBuilder("Lt", (c) => c < 0));
-  registry.set("$lte", makeOrderBuilder("Lte", (c) => c <= 0));
+  registry.set("$gt", makeOrderBuilder(OrderKind.Gt));
+  registry.set("$gte", makeOrderBuilder(OrderKind.Gte));
+  registry.set("$lt", makeOrderBuilder(OrderKind.Lt));
+  registry.set("$lte", makeOrderBuilder(OrderKind.Lte));
 }

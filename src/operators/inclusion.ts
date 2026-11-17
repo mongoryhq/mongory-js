@@ -113,19 +113,63 @@ function lookupContains(lookup: InLookup, value: unknown): boolean {
   return false;
 }
 
-function matchInElements(record: unknown, containsFn: (v: unknown) => boolean, negate: boolean): boolean {
-  let found = false;
-  if (Array.isArray(record)) {
-    for (let i = 0; i < record.length; i++) {
-      if (containsFn(record[i])) {
-        found = true;
-        break;
+class StringInNode implements MatcherNode {
+  private readonly set: Set<string> | undefined;
+
+  constructor(
+    private readonly items: ReadonlyArray<string>,
+    private readonly negate: boolean,
+  ) {
+    if (items.length >= IN_SET_THRESHOLD) {
+      this.set = new Set(items);
+    }
+  }
+
+  private containsString(v: unknown): boolean {
+    if (typeof v !== "string") {
+      return false;
+    }
+    if (this.set) {
+      return this.set.has(v);
+    }
+    for (let i = 0, len = this.items.length; i < len; i++) {
+      if (v === this.items[i]) {
+        return true;
       }
     }
-  } else {
-    found = containsFn(record);
+    return false;
   }
-  return found !== negate;
+
+  match(record: unknown): boolean {
+    let found = false;
+    if (Array.isArray(record)) {
+      for (let i = 0, len = record.length; i < len; i++) {
+        if (this.containsString(record[i])) {
+          found = true;
+          break;
+        }
+      }
+    } else {
+      found = this.containsString(record);
+    }
+    return found !== this.negate;
+  }
+
+  priority(): number {
+    return this.set ? 3 : 2 + Math.floor(this.items.length / 8);
+  }
+
+  private label(): string {
+    return `${this.negate ? "Nin" : "In"}(${formatValue(this.items)})`;
+  }
+
+  explain(lines: string[], prefix: string, isLast: boolean, isRoot: boolean): void {
+    writeTreeLine(lines, prefix, isLast, isRoot, this.label());
+  }
+
+  trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
+    return traceLeaf(this, record, lines, prefix, isLast, isRoot, this.label());
+  }
 }
 
 class InNode implements MatcherNode {
@@ -153,7 +197,18 @@ class InNode implements MatcherNode {
   }
 
   match(record: unknown): boolean {
-    return matchInElements(record, (v) => this.contains(v), this.negate);
+    let found = false;
+    if (Array.isArray(record)) {
+      for (let i = 0, len = record.length; i < len; i++) {
+        if (this.contains(record[i])) {
+          found = true;
+          break;
+        }
+      }
+    } else {
+      found = this.contains(record);
+    }
+    return found !== this.negate;
   }
 
   priority(): number {
@@ -215,7 +270,18 @@ class InConvNode implements MatcherNode {
   }
 
   match(record: unknown): boolean {
-    return matchInElements(record, (v) => this.contains(v), this.base.negate);
+    let found = false;
+    if (Array.isArray(record)) {
+      for (let i = 0, len = record.length; i < len; i++) {
+        if (this.contains(record[i])) {
+          found = true;
+          break;
+        }
+      }
+    } else {
+      found = this.contains(record);
+    }
+    return found !== this.base.negate;
   }
 
   priority(): number {
@@ -237,6 +303,9 @@ function buildIn(operator: string, negate: boolean): OperatorBuilder {
       throw invalidCondition(`${operator} needs an array, got ${describeType(condition)}`);
     }
     ctx.addNode();
+    if (!ctx.hasConverters() && condition.length > 0 && condition.every((x) => typeof x === "string")) {
+      return new StringInNode(condition as string[], negate);
+    }
     const base = new InNode(condition, negate);
     if (ctx.hasConverters()) {
       return new InConvNode(base, ctx.cfg);

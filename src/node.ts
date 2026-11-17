@@ -10,7 +10,7 @@ import { buildCustomOpNode } from "./operators/custom.js";
 import { registerExistenceOperators } from "./operators/existence.js";
 import { registerInclusionOperators } from "./operators/inclusion.js";
 import { RegexNode, buildRegexNode } from "./operators/regex.js";
-import { Condition, MISSING, isPlainObject, isRecordObject, parseIndexKey, setOwnProp, sortedOwnKeys } from "./types.js";
+import { Condition, MISSING, isPlainObject, parseIndexKey, setOwnProp, sortedOwnKeys } from "./types.js";
 
 const BUILTIN_BUILDERS: ReadonlyMap<string, OperatorBuilder> = (() => {
   const map = new Map<string, OperatorBuilder>();
@@ -65,11 +65,21 @@ class FieldNode implements MatcherNode {
       }
       return MISSING;
     }
-    if (!isRecordObject(record)) {
-      return INVALID_CONTAINER;
+    const proto = Object.getPrototypeOf(record);
+    if (proto !== Object.prototype && proto !== null) {
+      if (
+        record instanceof Date ||
+        record instanceof RegExp ||
+        ArrayBuffer.isView(record) ||
+        record instanceof ArrayBuffer ||
+        record instanceof Map ||
+        record instanceof Set
+      ) {
+        return INVALID_CONTAINER;
+      }
     }
     if (Object.hasOwn(record, this.field)) {
-      const val = record[this.field];
+      const val = (record as Record<string, unknown>)[this.field];
       return val === undefined ? MISSING : val;
     }
     return MISSING;

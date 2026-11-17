@@ -59,6 +59,11 @@ test("matcher unbound methods, namespace helpers, and collection helpers", () =>
 
   assert.deepEqual(mongory.filter(users, m), [users[0], users[2], users[3]]);
   assert.deepEqual(m.filter(new Set(users)), [users[0], users[2], users[3]]);
+  assert.deepEqual(m.filterLimit(new Set(users), 2), [users[0], users[2]]);
+  assert.deepEqual(m.find(new Set(users)), users[0]);
+  assert.equal(m.any(new Set(users)), true);
+  assert.equal(m.any(new Set([{ age: 10 }])), false);
+  assert.equal(m.count(new Set(users)), 3);
   assert.deepEqual(mongory.filterLimit(users, m, 2), [users[0], users[2]]);
   assert.deepEqual(m.filterLimit(users, 0), []);
   assert.deepEqual(m.filterLimit(users, NaN), []);
@@ -81,6 +86,11 @@ test("numeric precision: bigint, -0, NaN, Infinity", () => {
   assert.equal(matchCondition({ id: { $lt: 9007199254740993n } }, { id: 9007199254740992 }), true);
   assert.equal(matchCondition({ id: 9007199254740993n }, { id: 9007199254740993n }), true);
   assert.equal(matchCondition({ n: 42n }, { n: 42 }), true);
+  assert.equal(matchCondition({ n: 42 }, { n: 42n }), true);
+  assert.equal(matchCondition({ n: { $gt: 10 } }, { n: 20n }), true);
+  assert.equal(matchCondition({ n: { $gte: 20 } }, { n: 20n }), true);
+  assert.equal(matchCondition({ n: { $lt: 10 } }, { n: 5n }), true);
+  assert.equal(matchCondition({ n: { $lte: 10 } }, { n: 10n }), true);
   assert.equal(matchCondition({ n: { $gt: -3.5 } }, { n: -3n }), true);
   assert.equal(matchCondition({ n: { $lt: 3.5 } }, { n: 3n }), true);
   assert.equal(matchCondition({ n: { $gt: Infinity } }, { n: 10n ** 100n }), false);
@@ -103,7 +113,13 @@ test("Date and Uint8Array comparisons", () => {
   const t1 = new Date("2026-01-01T00:00:00Z");
   const t2 = new Date("2026-01-02T00:00:00Z");
   const m = compileMatcher({ at: { $gte: t1, $lt: t2 } });
+  const mRange = compileMatcher({ at: { $gt: t1, $lte: t2 } });
   assert.equal(m.match({ at: new Date("2026-01-01T12:00:00Z") }), true);
+  assert.equal(mRange.match({ at: new Date(t2.getTime()) }), true);
+  assert.equal(mRange.match({ at: new Date(t1.getTime()) }), false);
+  assert.equal(mRange.match({ at: "not-a-date" }), false);
+  assert.equal(matchCondition({ s: { $gte: "b", $lte: "d" } }, { s: "c" }), true);
+  assert.equal(matchCondition({ s: { $gt: "a" } }, { s: 123 }), false);
   assert.equal(m.match({ at: new Date(t2.getTime()) }), false);
   assert.equal(m.match({ at: new Date(NaN) }), false);
   assert.equal(matchCondition({ "at.getTime": { $exists: true } }, { at: t1 }), false);
