@@ -1,0 +1,66 @@
+{
+  "name": "mongory",
+  "version": "0.1.0",
+  "description": "Zero-dependency, pure TypeScript MongoDB-style in-memory query matcher with explain and trace debugging",
+  "license": "MIT",
+  "author": "frank0224 <koten0224@gmail.com>",
+  "homepage": "https://github.com/mongoryhq/mongory-js#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mongoryhq/mongory-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mongoryhq/mongory-js/issues"
+  },
+  "keywords": [
+    "mongory",
+    "mongodb",
+    "query",
+    "matcher",
+    "filter",
+    "rule-engine",
+    "condition-parser",
+    "in-memory",
+    "typescript"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "clean": "node -e \"const fs=require('node:fs');for(const d of ['dist','dist-test'])fs.rmSync(d,{recursive:true,force:true})\"",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.esm.json",
+    "build:esm": "tsc -p tsconfig.esm.json && node -e \"require('node:fs').writeFileSync('dist/esm/package.json', JSON.stringify({type:'module'},null,2)+'\\n')\"",
+    "build:cjs": "tsc -p tsconfig.cjs.json && node -e \"require('node:fs').writeFileSync('dist/cjs/package.json', JSON.stringify({type:'commonjs'},null,2)+'\\n')\"",
+    "build": "npm run clean && npm run build:esm && npm run build:cjs",
+    "test:node": "tsc -p tsconfig.test.json && node --test dist-test/tests/*.test.js",
+    "test:bun": "bun test tests/conformance.test.ts tests/matcher.test.ts tests/limits_and_cycles.test.ts tests/options_and_builders.test.ts tests/explain_trace.test.ts",
+    "test:smoke": "node -e \"Promise.all([import('mongory'),Promise.resolve(require('mongory'))]).then(([e,c])=>{const k='\\x24gte';const q={age:{[k]:18}};if(!e.compile(q).match({age:20})||!c.compile(q).match({age:20}))process.exit(1);}).catch(err=>{console.error(err);process.exit(1);})\"",
+    "test": "npm run typecheck && npm run build && npm run test:smoke && npm run test:node"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

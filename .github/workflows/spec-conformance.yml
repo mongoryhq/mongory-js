@@ -1,0 +1,91 @@
+name: mongory-spec conformance
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      spec_ref:
+        description: "mongory-spec ref (branch, tag, or SHA) to test against"
+        required: false
+        default: "main"
+
+jobs:
+  conformance-node:
+    name: Spec Conformance Node ${{ matrix.node-version }} on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            node-version: '20'
+          - os: ubuntu-latest
+            node-version: '22'
+          - os: ubuntu-latest
+            node-version: '23'
+          - os: macos-15
+            node-version: '22'
+          - os: windows-latest
+            node-version: '22'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: mongory-js
+
+      - name: Checkout mongory-spec
+        uses: actions/checkout@v4
+        with:
+          repository: mongoryhq/mongory-spec
+          ref: ${{ github.event.inputs.spec_ref || 'main' }}
+          path: mongory-spec
+
+      - name: Show mongory-spec revision
+        shell: bash
+        working-directory: mongory-spec
+        run: echo "mongory-spec $(cat VERSION) @ $(git rev-parse --short HEAD)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: mongory-js/package-lock.json
+
+      - name: Install, build, and run tests + conformance (zero skips)
+        working-directory: mongory-js
+        shell: bash
+        env:
+          MONGORY_SPEC_DIR: ${{ github.workspace }}/mongory-spec
+        run: |
+          npm ci
+          npx tsc -p tsconfig.test.json
+          node --test dist-test/tests/*.test.js
+
+  conformance-bun:
+    name: Spec Conformance Bun on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-15, windows-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: mongory-js
+
+      - name: Checkout mongory-spec
+        uses: actions/checkout@v4
+        with:
+          repository: mongoryhq/mongory-spec
+          ref: ${{ github.event.inputs.spec_ref || 'main' }}
+          path: mongory-spec
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Run conformance + unit tests under Bun
+        working-directory: mongory-js
+        env:
+          MONGORY_SPEC_DIR: ${{ github.workspace }}/mongory-spec
+        run: bun test tests/conformance.test.ts tests/matcher.test.ts tests/limits_and_cycles.test.ts tests/options_and_builders.test.ts tests/explain_trace.test.ts

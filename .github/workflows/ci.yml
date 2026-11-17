@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  node:
+    name: Node ${{ matrix.node-version }} on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            node-version: '20'
+          - os: ubuntu-latest
+            node-version: '22'
+          - os: ubuntu-latest
+            node-version: '23'
+          - os: macos-15
+            node-version: '22'
+          - os: windows-latest
+            node-version: '20'
+          - os: windows-latest
+            node-version: '22'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install devDependencies
+        run: npm ci
+
+      - name: Typecheck (strict + zero Node globals in src)
+        run: npm run typecheck
+
+      - name: Build ESM + CJS + .d.ts
+        run: npm run build
+
+      - name: Verify zero runtime dependencies and dual ESM/CJS exports
+        shell: bash
+        run: |
+          node -e "const pkg = require('./package.json'); if (pkg.dependencies && Object.keys(pkg.dependencies).length > 0) { console.error('Unexpected runtime dependencies:', pkg.dependencies); process.exit(1); }"
+          npm run test:smoke
+          test -f dist/esm/index.d.ts
+          test -f dist/cjs/index.d.ts
+
+  bun:
+    name: Bun ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-15, windows-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Run unit tests under Bun
+        run: bun test tests/matcher.test.ts tests/limits_and_cycles.test.ts tests/options_and_builders.test.ts tests/explain_trace.test.ts
