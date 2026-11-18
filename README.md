@@ -1,6 +1,13 @@
 # mongory-js
 
-Zero-dependency, pure TypeScript MongoDB-style in-memory query matcher for JavaScript, TypeScript, browsers, Node.js (`>= 20`), Bun, Deno, and Edge runtimes: compile a filter condition once into an immutable matcher and evaluate objects, arrays, or class instances with built-in text (`explain()` / `trace()`) and structured AST (`explainTree()` / `traceTree()`) debugging.
+**Zero-dependency TypeScript/JavaScript in-memory Mongo-style rule engine & query matcher** with built-in text (`explain()` / `trace()`) and structured AST (`explainTree()` / `traceTree()`) debugging — runs in browsers, Node.js (`>= 20`), Bun, Deno, and Edge runtimes.
+
+**[Try the Interactive Playground & Visual Explain/Trace Debugger ↗](https://mongoryhq.github.io/mongory-central/)**
+
+[![Mongory Playground & Visual Trace](https://mongoryhq.github.io/mongory-central/playground-trace.png)](https://mongoryhq.github.io/mongory-central/)
+
+> **Zero database required:** Compile a filter condition once and evaluate plain objects, arrays, maps, or class instances with cost-sorted execution plans and short-circuit trace snapshots.  
+> **Ecosystem:** [Interactive Playground](https://mongoryhq.github.io/mongory-central/) · [`mongory-go` (Go)](https://github.com/mongoryhq/mongory-go) · [`mongory-rb` (Ruby)](https://github.com/mongoryhq/mongory-rb) · [`mongory-core` (C99)](https://github.com/mongoryhq/mongory-core) · [`mongory-spec`](https://github.com/mongoryhq/mongory-spec)
 
 ## Features
 
