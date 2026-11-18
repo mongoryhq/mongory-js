@@ -1,6 +1,7 @@
 import { CompileContext, OperatorBuilder, invalidCondition } from "../compile_ctx.js";
 import {
   MatcherNode,
+  PriorityParent,
   childPrefixFor,
   explainBranch,
   formatTraceValue,
@@ -73,12 +74,24 @@ function traceArrayElements(
   return matched;
 }
 
-class ArrayElementsNode implements MatcherNode {
+class ArrayElementsNode implements MatcherNode, PriorityParent {
+  private parent?: PriorityParent;
+
   constructor(
     private readonly op: "ElemMatch" | "Every",
     private readonly inner: MatcherNode,
     private readonly stopOn: boolean,
-  ) {}
+  ) {
+    inner.setParent?.(this);
+  }
+
+  setParent(parent: PriorityParent): void {
+    this.parent = parent;
+  }
+
+  onChildPriorityChanged(): void {
+    this.parent?.onChildPriorityChanged();
+  }
 
   match(record: unknown): boolean {
     if (!Array.isArray(record) || record.length === 0) {
@@ -178,8 +191,20 @@ class ArrayElementsNode implements MatcherNode {
   }
 }
 
-class SizeNode implements MatcherNode {
-  constructor(private readonly inner: MatcherNode) {}
+class SizeNode implements MatcherNode, PriorityParent {
+  private parent?: PriorityParent;
+
+  constructor(private readonly inner: MatcherNode) {
+    inner.setParent?.(this);
+  }
+
+  setParent(parent: PriorityParent): void {
+    this.parent = parent;
+  }
+
+  onChildPriorityChanged(): void {
+    this.parent?.onChildPriorityChanged();
+  }
 
   match(record: unknown): boolean {
     return Array.isArray(record) && this.inner.match(record.length);

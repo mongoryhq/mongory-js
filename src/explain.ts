@@ -8,6 +8,10 @@ import {
   sortedOwnKeys,
 } from "./types.js";
 
+export interface PriorityParent {
+  onChildPriorityChanged(): void;
+}
+
 export interface MatcherNode {
   match(record: unknown): boolean;
   priority(): number;
@@ -15,6 +19,7 @@ export interface MatcherNode {
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean;
   explainTree(order?: number): ExplainNode;
   traceTree(record: unknown, order?: number): TraceNode;
+  setParent?(parent: PriorityParent): void;
 }
 
 export interface NodeTreeMeta {

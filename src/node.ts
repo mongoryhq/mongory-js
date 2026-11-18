@@ -1,6 +1,7 @@
 import { CompileContext, OperatorBuilder, TreeBuilderHooks, invalidCondition, sortByPriority } from "./compile_ctx.js";
 import {
   MatcherNode,
+  PriorityParent,
   explainBranch,
   formatTraceValue,
   makeExplainNode,
@@ -77,12 +78,24 @@ class NullNode implements MatcherNode {
   }
 }
 
-class FieldNode implements MatcherNode {
+class FieldNode implements MatcherNode, PriorityParent {
+  private parent?: PriorityParent;
+
   constructor(
     protected readonly field: string,
     protected readonly index: number | undefined,
     protected readonly literal: MatcherNode,
-  ) {}
+  ) {
+    literal.setParent?.(this);
+  }
+
+  setParent(parent: PriorityParent): void {
+    this.parent = parent;
+  }
+
+  onChildPriorityChanged(): void {
+    this.parent?.onChildPriorityChanged();
+  }
 
   protected extract(record: unknown): unknown | typeof INVALID_CONTAINER {
     if (record === null || record === undefined || record === MISSING || typeof record !== "object") {
@@ -205,19 +218,40 @@ class ExtFieldNode extends FieldNode {
   }
 }
 
-class LiteralNode implements MatcherNode {
+class LiteralNode implements MatcherNode, PriorityParent {
   protected arrayRecord: MatcherNode | undefined;
+  private parent?: PriorityParent;
 
   constructor(
     protected readonly condition: unknown,
     protected readonly dispatched: MatcherNode,
-  ) {}
+  ) {
+    dispatched.setParent?.(this);
+  }
 
-  protected ensureArrayRecord(): MatcherNode {
+  setParent(parent: PriorityParent): void {
+    this.parent = parent;
+  }
+
+  onChildPriorityChanged(): void {
+    this.parent?.onChildPriorityChanged();
+  }
+
+  protected installArrayRecord(build: () => MatcherNode): MatcherNode {
     if (!this.arrayRecord) {
-      this.arrayRecord = buildArrayRecord(this.condition, undefined);
+      const prevPriority = this.priority();
+      const built = build();
+      built.setParent?.(this);
+      this.arrayRecord = built;
+      if (this.priority() !== prevPriority) {
+        this.parent?.onChildPriorityChanged();
+      }
     }
     return this.arrayRecord;
+  }
+
+  protected ensureArrayRecord(): MatcherNode {
+    return this.installArrayRecord(() => buildArrayRecord(this.condition, undefined));
   }
 
   match(record: unknown): boolean {
@@ -265,10 +299,7 @@ class ExtLiteralNode extends LiteralNode {
   }
 
   protected override ensureArrayRecord(): MatcherNode {
-    if (!this.arrayRecord) {
-      this.arrayRecord = buildArrayRecord(this.condition, this.arrayCtx);
-    }
-    return this.arrayRecord;
+    return this.installArrayRecord(() => buildArrayRecord(this.condition, this.arrayCtx));
   }
 
   override match(record: unknown): boolean {

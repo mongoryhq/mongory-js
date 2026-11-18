@@ -1,6 +1,7 @@
 import { CompileContext, OperatorBuilder, invalidCondition, sortByPriority } from "../compile_ctx.js";
 import {
   MatcherNode,
+  PriorityParent,
   explainBranch,
   explainGroupTree,
   makeExplainNode,
@@ -13,12 +14,43 @@ import {
 import { describeType } from "../normalize.js";
 import { Condition, ExplainNode, TraceNode, isPlainObject } from "../types.js";
 
-export class AllOfNode implements MatcherNode {
-  constructor(readonly children: ReadonlyArray<MatcherNode>) {}
+function resortGroupChildren(children: ReadonlyArray<MatcherNode>): ReadonlyArray<MatcherNode> {
+  if (children.length <= 1) {
+    return children;
+  }
+  const next = children.slice();
+  sortByPriority(next);
+  return next;
+}
+
+export class AllOfNode implements MatcherNode, PriorityParent {
+  private parent?: PriorityParent;
+  private _children: ReadonlyArray<MatcherNode>;
+
+  constructor(children: ReadonlyArray<MatcherNode>) {
+    this._children = children;
+    for (let i = 0; i < children.length; i++) {
+      children[i].setParent?.(this);
+    }
+  }
+
+  get children(): ReadonlyArray<MatcherNode> {
+    return this._children;
+  }
+
+  setParent(parent: PriorityParent): void {
+    this.parent = parent;
+  }
+
+  onChildPriorityChanged(): void {
+    this._children = resortGroupChildren(this._children);
+    this.parent?.onChildPriorityChanged();
+  }
 
   match(record: unknown): boolean {
-    for (let i = 0; i < this.children.length; i++) {
-      if (!this.children[i].match(record)) {
+    const children = this._children;
+    for (let i = 0; i < children.length; i++) {
+      if (!children[i].match(record)) {
         return false;
       }
     }
@@ -26,40 +58,64 @@ export class AllOfNode implements MatcherNode {
   }
 
   priority(): number {
+    const children = this._children;
     let total = 1;
-    for (let i = 0; i < this.children.length; i++) {
-      total += this.children[i].priority();
+    for (let i = 0; i < children.length; i++) {
+      total += children[i].priority();
     }
     return total;
   }
 
   explain(lines: string[], prefix: string, isLast: boolean, isRoot: boolean): void {
-    if (this.children.length === 0) {
+    const children = this._children;
+    if (children.length === 0) {
       writeTreeLine(lines, prefix, isLast, isRoot, "And (empty)");
       return;
     }
-    explainBranch(lines, prefix, isLast, isRoot, "And", this.children);
+    explainBranch(lines, prefix, isLast, isRoot, "And", children);
   }
 
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
-    return traceGroup(record, lines, prefix, isLast, isRoot, "And", this.children, false);
+    return traceGroup(record, lines, prefix, isLast, isRoot, "And", this._children, false);
   }
 
   explainTree(order?: number): ExplainNode {
-    return explainGroupTree(this, "and", "And", "$and", this.children, order);
+    return explainGroupTree(this, "and", "And", "$and", this._children, order);
   }
 
   traceTree(record: unknown, order?: number): TraceNode {
-    return traceGroupTree(this, record, "and", "And", "$and", this.children, false, order);
+    return traceGroupTree(this, record, "and", "And", "$and", this._children, false, order);
   }
 }
 
-export class AnyOfNode implements MatcherNode {
-  constructor(readonly children: ReadonlyArray<MatcherNode>) {}
+export class AnyOfNode implements MatcherNode, PriorityParent {
+  private parent?: PriorityParent;
+  private _children: ReadonlyArray<MatcherNode>;
+
+  constructor(children: ReadonlyArray<MatcherNode>) {
+    this._children = children;
+    for (let i = 0; i < children.length; i++) {
+      children[i].setParent?.(this);
+    }
+  }
+
+  get children(): ReadonlyArray<MatcherNode> {
+    return this._children;
+  }
+
+  setParent(parent: PriorityParent): void {
+    this.parent = parent;
+  }
+
+  onChildPriorityChanged(): void {
+    this._children = resortGroupChildren(this._children);
+    this.parent?.onChildPriorityChanged();
+  }
 
   match(record: unknown): boolean {
-    for (let i = 0; i < this.children.length; i++) {
-      if (this.children[i].match(record)) {
+    const children = this._children;
+    for (let i = 0; i < children.length; i++) {
+      if (children[i].match(record)) {
         return true;
       }
     }
@@ -67,36 +123,50 @@ export class AnyOfNode implements MatcherNode {
   }
 
   priority(): number {
+    const children = this._children;
     let total = 1;
-    for (let i = 0; i < this.children.length; i++) {
-      total += this.children[i].priority();
+    for (let i = 0; i < children.length; i++) {
+      total += children[i].priority();
     }
     return total;
   }
 
   explain(lines: string[], prefix: string, isLast: boolean, isRoot: boolean): void {
-    if (this.children.length === 0) {
+    const children = this._children;
+    if (children.length === 0) {
       writeTreeLine(lines, prefix, isLast, isRoot, "Or (empty)");
       return;
     }
-    explainBranch(lines, prefix, isLast, isRoot, "Or", this.children);
+    explainBranch(lines, prefix, isLast, isRoot, "Or", children);
   }
 
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
-    return traceGroup(record, lines, prefix, isLast, isRoot, "Or", this.children, true);
+    return traceGroup(record, lines, prefix, isLast, isRoot, "Or", this._children, true);
   }
 
   explainTree(order?: number): ExplainNode {
-    return explainGroupTree(this, "or", "Or", "$or", this.children, order);
+    return explainGroupTree(this, "or", "Or", "$or", this._children, order);
   }
 
   traceTree(record: unknown, order?: number): TraceNode {
-    return traceGroupTree(this, record, "or", "Or", "$or", this.children, true, order);
+    return traceGroupTree(this, record, "or", "Or", "$or", this._children, true, order);
   }
 }
 
-class NotNode implements MatcherNode {
-  constructor(private readonly inner: MatcherNode) {}
+class NotNode implements MatcherNode, PriorityParent {
+  private parent?: PriorityParent;
+
+  constructor(private readonly inner: MatcherNode) {
+    inner.setParent?.(this);
+  }
+
+  setParent(parent: PriorityParent): void {
+    this.parent = parent;
+  }
+
+  onChildPriorityChanged(): void {
+    this.parent?.onChildPriorityChanged();
+  }
 
   match(record: unknown): boolean {
     return !this.inner.match(record);

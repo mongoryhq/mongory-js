@@ -371,3 +371,66 @@ test("lazy arrayRecord build updates Field and root priority in traceTree and ex
   assert.equal(extTrace.tree.priority, 6);
   assert.equal(ext.explainTree().priority, 6);
 });
+
+test("lazy arrayRecord build re-sorts sibling matchers in And, Or, and nested arrays", () => {
+  const m = compileMatcher({
+    tags: "ts",
+    age: { $gte: 18 },
+    items: { $size: { $gte: 1 } },
+  });
+
+  // Initial order: tags (3) < age (5) < items (8)
+  assert.deepEqual(
+    m.explainTree().children.map((c) => [c.field, c.priority]),
+    [
+      ["tags", 3],
+      ["age", 5],
+      ["items", 8],
+    ],
+  );
+
+  // Triggering arrayRecord on tags raises tags to 6 (> age 5, < items 8)
+  assert.equal(m.match({ tags: ["go", "ts"], age: 20, items: [1] }), true);
+
+  // Subsequent explainTree and traceTree reflect re-sorted order: age (5) < tags (6) < items (8)
+  assert.deepEqual(
+    m.explainTree().children.map((c) => [c.field, c.priority, c.order]),
+    [
+      ["age", 5, 0],
+      ["tags", 6, 1],
+      ["items", 8, 2],
+    ],
+  );
+
+  // Cheaper age condition now runs first and short-circuits before scanning tags/items arrays
+  const fastFail = m.traceTree({ tags: ["go", "ts"], age: 15, items: [1] });
+  assert.equal(fastFail.matched, false);
+  assert.equal(fastFail.tree.priority, 20);
+  assert.equal(fastFail.tree.children[0].field, "age");
+  assert.equal(fastFail.tree.children[0].status, "FAIL");
+  assert.equal(fastFail.tree.children[1].field, "tags");
+  assert.equal(fastFail.tree.children[1].status, "SKIP");
+  assert.equal(fastFail.tree.children[2].field, "items");
+  assert.equal(fastFail.tree.children[2].status, "SKIP");
+
+  // $or branches also re-sort when a branch triggers arrayRecord
+  const orMatcher = compileMatcher({
+    $or: [{ tags: "ts" }, { age: { $gte: 18 } }],
+  });
+  assert.deepEqual(
+    orMatcher.explainTree().children.map((c) => [c.field, c.priority]),
+    [
+      ["tags", 3],
+      ["age", 5],
+    ],
+  );
+  // First branch passes immediately on { tags: ["go", "ts"], age: 10 }, sorting Or to [age(5), tags(6)]
+  assert.equal(orMatcher.match({ tags: ["go", "ts"], age: 10 }), true);
+  assert.deepEqual(
+    orMatcher.explainTree().children.map((c) => [c.field, c.priority]),
+    [
+      ["age", 5],
+      ["tags", 6],
+    ],
+  );
+});
