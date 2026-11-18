@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1 (2026-11-18)
+
+### Fixed
+
+- Include lazily built `arrayRecord` matcher priority across all enclosing ancestors (`FieldNode`, composite nodes, `$not`, `$elemMatch`, `$every`, `$size`) and structured AST (`explainTree` / `traceTree`).
+- Dynamically re-sort enclosing `AllOfNode` and `AnyOfNode` child matchers via copy-on-write snapshot replacement when lazy `arrayRecord` construction increases priority, so subsequent evaluations short-circuit on cheaper branches first.
+
 ## 0.1.0 (2026-11-18)
 
 ### Added

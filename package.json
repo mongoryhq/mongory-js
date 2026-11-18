@@ -1,6 +1,6 @@
 {
   "name": "mongory-js",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Zero-dependency, pure TypeScript MongoDB-style in-memory query matcher with explain and trace debugging",
   "license": "MIT",
   "author": "frank0224 <koten0224@gmail.com>",
