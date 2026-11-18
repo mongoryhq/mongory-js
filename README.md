@@ -232,7 +232,7 @@ npm run test:bun
 npm run bench
 ```
 
-See [docs/performance.md](docs/performance.md) for measured Node.js benchmark results.
+See [docs/performance.md](docs/performance.md) for full Node.js benchmark results (`plain_fast`, semantics-equivalent `plain_safe`, `mongory-js`, `sift`, and `mingo` across monomorphic and polymorphic 10,000-record datasets).
 
 ## Comparison with `sift` / `mingo`
 
@@ -240,6 +240,7 @@ See [docs/performance.md](docs/performance.md) for measured Node.js benchmark re
 |------------|--------------|------------------|
 | **Cross-language parity** | Verified against shared `mongory-spec` across JS, Go, Ruby, and C99 | JS/TS-only |
 | **Explain & Trace debugging** | Built-in `explain()`, `trace()`, `explainTree()`, `traceTree()` with short-circuit `[SKIP]` traces | Not built in |
+| **Pre-compiled throughput** | Faster than both in our [benchmark suite](docs/performance.md): **1.5x–6.9x** vs `sift` and **2.6x–5.8x** vs `mingo` on standard queries; **200x–350x** on 500-item `$in` (Node `v23.1.0`, Apple M3, 10k mono & poly records); **1.01x–2.09x** vs semantics-equivalent defensive Plain JS | Slower per-record evaluation; linear scan on large `$in` |
 | **Runtime dependencies** | `0` (ESM + CJS + `.d.ts`) | `0` |
 | **Rule-engine safety & extras** | `$every`, `$present`, `maxDepth`/`maxNodes`, cycle rejection, `__proto__` guard | Focuses on MongoDB query/aggregation parity |
 
