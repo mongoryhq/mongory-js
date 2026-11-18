@@ -232,6 +232,8 @@ npm run test:bun
 npm run bench
 ```
 
+See [docs/performance.md](docs/performance.md) for measured Node.js benchmark results.
+
 ## Comparison with `sift` / `mingo`
 
 | Capability | `mongory-js` | `sift` / `mingo` |
