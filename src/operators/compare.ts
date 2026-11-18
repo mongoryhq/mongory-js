@@ -54,10 +54,11 @@ export class ConvValueNode implements MatcherNode {
   }
 
   traceTree(record: unknown, order?: number): TraceNode {
+    const matched = this.match(record);
     const exp = this.inner.explainTree(order);
     return makeTraceNode(
       exp.kind,
-      this.match(record),
+      matched,
       exp.label,
       exp.priority,
       record,

@@ -137,7 +137,6 @@ class ArrayElementsNode implements MatcherNode {
 
     const childTrees: TraceNode[] = [];
     let matched = !this.stopOn;
-    const innerPrio = this.inner.priority();
 
     for (let i = 0; i < record.length; i++) {
       const elem = record[i];
@@ -147,7 +146,7 @@ class ArrayElementsNode implements MatcherNode {
         kind: "element",
         status: statusLabel(passed),
         label: `[${i}]`,
-        priority: innerPrio,
+        priority: elemTree.priority,
         index: i,
         valueText: formatTraceValue(elem),
         value: snapshotTraceValue(elem),
@@ -162,7 +161,7 @@ class ArrayElementsNode implements MatcherNode {
             kind: "skip",
             status: "SKIP",
             label: `${rem} remaining element(s) (short-circuited)`,
-            priority: innerPrio,
+            priority: this.inner.priority(),
             skippedCount: rem,
             detail: "short-circuited",
             children: [],

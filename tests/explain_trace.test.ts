@@ -293,3 +293,81 @@ test("traceTree snapshot output is always JSON-serializable for exotic and cycli
   };
   assert.equal(cycParsed.tree.children[0].value.self, "<cycle>");
 });
+
+test("lazy arrayRecord build updates Field and root priority in traceTree and explainTree", () => {
+  const m = compileMatcher({
+    scores: { $size: { $gte: 3, $lte: 5 }, $every: { $gte: 60 } },
+    tags: "ts",
+    reviews: { approved: true, rating: { $gte: 4 } },
+  });
+
+  const before = m.explainTree();
+  assert.equal(before.priority, 34);
+  assert.deepEqual(
+    before.children.map((c) => [c.field, c.priority]),
+    [
+      ["tags", 3],
+      ["reviews", 11],
+      ["scores", 19],
+    ],
+  );
+
+  const trace = m.traceTree({
+    candidate: "Alice",
+    tags: ["go", "ts", "rust"],
+    scores: [82, 91, 77],
+    reviews: [
+      { reviewer: "r1", approved: false, rating: 5 },
+      { reviewer: "r2", approved: true, rating: 5 },
+      { reviewer: "r3", approved: true, rating: 4 },
+    ],
+  });
+  assert.equal(trace.matched, true);
+  assert.equal(trace.tree.priority, 40);
+  assert.deepEqual(
+    trace.tree.children.map((c) => [c.field, c.priority, c.children[0]?.priority]),
+    [
+      ["tags", 6, 4],
+      ["reviews", 14, 12],
+      ["scores", 19, 17],
+    ],
+  );
+
+  const after = m.explainTree();
+  assert.equal(after.priority, 40);
+  assert.deepEqual(
+    after.children.map((c) => [c.field, c.priority]),
+    [
+      ["tags", 6],
+      ["reviews", 14],
+      ["scores", 19],
+    ],
+  );
+  assert.equal(after.children[0].children[0].operator, "$elemMatch");
+  assert.equal(after.children[1].children[0].operator, "$elemMatch");
+
+  // Nested array inside $elemMatch updates element wrapper + skip priorities + outer priority
+  const nested = compileMatcher({
+    groups: { $elemMatch: { tags: "ts" } },
+  });
+  assert.equal(nested.explainTree().priority, 8);
+  const nestedTrace = nested.traceTree({
+    groups: [{ tags: ["go", "ts"] }, { tags: ["rust"] }],
+  });
+  assert.equal(nestedTrace.matched, true);
+  const elemMatchNode = nestedTrace.tree.children[0];
+  assert.equal(elemMatchNode.children[0].priority, 6);
+  assert.equal(elemMatchNode.children[1].priority, 6);
+  assert.equal(nestedTrace.tree.priority, 11);
+
+  // ExtLiteralNode with converter inherits the same priority & explain behavior
+  const ext = compileMatcher(
+    { tags: "ts" },
+    withConverter(Set, (s) => Array.from(s)),
+  );
+  assert.equal(ext.explainTree().priority, 3);
+  const extTrace = ext.traceTree({ tags: new Set(["go", "ts"]) });
+  assert.equal(extTrace.matched, true);
+  assert.equal(extTrace.tree.priority, 6);
+  assert.equal(ext.explainTree().priority, 6);
+});

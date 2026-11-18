@@ -228,11 +228,11 @@ class LiteralNode implements MatcherNode {
   }
 
   priority(): number {
-    return 1 + this.dispatched.priority();
+    return 1 + (this.arrayRecord ?? this.dispatched).priority();
   }
 
   explain(lines: string[], prefix: string, isLast: boolean, isRoot: boolean): void {
-    this.dispatched.explain(lines, prefix, isLast, isRoot);
+    (this.arrayRecord ?? this.dispatched).explain(lines, prefix, isLast, isRoot);
   }
 
   trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
@@ -243,7 +243,7 @@ class LiteralNode implements MatcherNode {
   }
 
   explainTree(order?: number): ExplainNode {
-    return this.dispatched.explainTree(order);
+    return (this.arrayRecord ?? this.dispatched).explainTree(order);
   }
 
   traceTree(record: unknown, order?: number): TraceNode {
