@@ -57,7 +57,8 @@
     "test:node": "tsc -p tsconfig.test.json && node --test dist-test/tests/*.test.js",
     "test:bun": "bun test tests/conformance.test.ts tests/matcher.test.ts tests/limits_and_cycles.test.ts tests/options_and_builders.test.ts tests/explain_trace.test.ts",
     "test:smoke": "node -e \"Promise.all([import('mongory-js'),Promise.resolve(require('mongory-js'))]).then(([e,c])=>{const k='\\x24gte';const q={age:{[k]:18}};const em=e.mongory.compile(q);const cm=c.compileMatcher(q);if(!em.match({age:20})||!e.default.compile(q).match({age:20})||!e.compileMatcher(q).match({age:20})||!c.mongory.compile(q).match({age:20})||!cm.match({age:20}))process.exit(1);if(em.explainTree().kind!=='field'||em.explainTree().children[0].operator!==k||!em.traceTree({age:20}).matched||cm.explainTree().kind!=='field'||cm.traceTree({age:10}).matched)process.exit(1);}).catch(err=>{console.error(err);process.exit(1);})\"",
-    "test": "npm run typecheck && npm run build && npm run test:smoke && npm run test:node"
+    "test": "npm run typecheck && npm run build && npm run test:smoke && npm run test:node",
+    "bench": "npm run build && node scripts/bench.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

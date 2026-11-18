@@ -23,7 +23,7 @@ const CONFORMANCE_DIRS = [
   "compare",
   "composite",
   "errors",
-  "existance",
+  "existence",
   "field",
   "inclusion",
   "regex",

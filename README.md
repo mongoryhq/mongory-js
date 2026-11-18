@@ -229,7 +229,25 @@ git clone https://github.com/mongoryhq/mongory-spec.git ../mongory-spec
 npm install
 npm test
 npm run test:bun
+npm run bench
 ```
+
+## Comparison with `sift` / `mingo`
+
+| Capability | `mongory-js` | `sift` / `mingo` |
+|------------|--------------|------------------|
+| **Cross-language parity** | Verified against shared `mongory-spec` across JS, Go, Ruby, and C99 | JS/TS-only |
+| **Explain & Trace debugging** | Built-in `explain()`, `trace()`, `explainTree()`, `traceTree()` with short-circuit `[SKIP]` traces | Not built in |
+| **Runtime dependencies** | `0` (ESM + CJS + `.d.ts`) | `0` |
+| **Rule-engine safety & extras** | `$every`, `$present`, `maxDepth`/`maxNodes`, cycle rejection, `__proto__` guard | Focuses on MongoDB query/aggregation parity |
+
+## Differences from MongoDB
+
+- **`$every` (Mongory extension)**: Requires all array elements to match and returns `false` on empty arrays `[]` (no vacuous truth).
+- **`$present` (Mongory extension)**: ActiveSupport-style presence check (`false` for missing key, `null`, `false`, `""`, `[]`, `{}`; `true` for numbers including `0` and non-empty strings/arrays/objects).
+- **`$regex` / `$options`**: Restricted to the cross-engine regex subset with flags `i`, `m`, `s` (`x` and `u` are rejected).
+- **Excluded operators**: Unknown `$`-prefixed keys fail compilation; aggregation (`$expr`), `$type`, `$mod`, geospatial, and update operators are not included.
+- Full specification: [`mongory-spec` Differences from MongoDB](https://github.com/mongoryhq/mongory-spec#37-differences-from-mongodb-query-syntax).
 
 ## License
 

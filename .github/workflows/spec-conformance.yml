@@ -5,15 +5,18 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  schedule:
+    - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
       spec_ref:
         description: "mongory-spec ref (branch, tag, or SHA) to test against"
         required: false
-        default: "main"
+        default: "v0.2.1"
 
 jobs:
   conformance-node:
+    if: github.event_name != 'schedule'
     name: Spec Conformance Node ${{ matrix.node-version }} on ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -39,7 +42,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: mongoryhq/mongory-spec
-          ref: ${{ github.event.inputs.spec_ref || 'main' }}
+          ref: ${{ github.event.inputs.spec_ref || 'v0.2.1' }}
           path: mongory-spec
 
       - name: Show mongory-spec revision
@@ -64,6 +67,7 @@ jobs:
           node --test dist-test/tests/*.test.js
 
   conformance-bun:
+    if: github.event_name != 'schedule'
     name: Spec Conformance Bun on ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -79,7 +83,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: mongoryhq/mongory-spec
-          ref: ${{ github.event.inputs.spec_ref || 'main' }}
+          ref: ${{ github.event.inputs.spec_ref || 'v0.2.1' }}
           path: mongory-spec
 
       - uses: oven-sh/setup-bun@v2
@@ -89,3 +93,35 @@ jobs:
         env:
           MONGORY_SPEC_DIR: ${{ github.workspace }}/mongory-spec
         run: bun test tests/conformance.test.ts tests/matcher.test.ts tests/limits_and_cycles.test.ts tests/options_and_builders.test.ts tests/explain_trace.test.ts
+
+  conformance-edge:
+    name: Spec Edge Preview (mongory-spec@main)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: mongory-js
+      - name: Checkout mongory-spec@main
+        uses: actions/checkout@v4
+        with:
+          repository: mongoryhq/mongory-spec
+          ref: main
+          path: mongory-spec
+      - name: Show mongory-spec revision
+        working-directory: mongory-spec
+        run: echo "mongory-spec $(cat VERSION) @ $(git rev-parse --short HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mongory-js/package-lock.json
+      - name: Install, build, and run conformance
+        working-directory: mongory-js
+        env:
+          MONGORY_SPEC_DIR: ${{ github.workspace }}/mongory-spec
+        run: |
+          npm ci
+          npx tsc -p tsconfig.test.json
+          node --test dist-test/tests/conformance.test.js
