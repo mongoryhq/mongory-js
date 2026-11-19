@@ -64,4 +64,16 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - name: Run unit tests under Bun
-        run: bun test tests/matcher.test.ts tests/limits_and_cycles.test.ts tests/options_and_builders.test.ts tests/explain_trace.test.ts
+        run: bun test tests/matcher.test.ts tests/limits_and_cycles.test.ts tests/options_and_builders.test.ts tests/explain_trace.test.ts tests/fuzz.test.ts
+
+  fuzz:
+    name: Fuzz Smoke (Node 22)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:fuzz
