@@ -59,12 +59,13 @@ const top1 = isEligible.filterLimit(users, 1); // [Ann]
 const total = isEligible.count(users); // 2
 ```
 
-### 2. Tree-Shakable Named Imports (Optional)
+### 2. Tree-Shakable Named Imports & Operator Constants (`mongory-js/op`)
 
-Prefer direct function imports for minimal bundles without changing semantics:
+Prefer direct function imports for minimal bundles, or import the optional `mongory-js/op` subpath for frozen operator key constants without typos:
 
 ```ts
 import { compileMatcher, matchCondition, mongoryAnd, mongoryOr } from "mongory-js";
+import { op } from "mongory-js/op";
 
 const records = [
   { role: "admin", active: true, score: 92 },
@@ -72,11 +73,11 @@ const records = [
 ];
 
 const isAllowed = compileMatcher(
-  mongoryAnd({ active: true }, mongoryOr({ role: "admin" }, { score: { $gte: 90 } })),
+  mongoryAnd({ active: true }, mongoryOr({ role: "admin" }, { score: { [op.gte]: 90 } })),
 );
 
 const allowed = isAllowed.filter(records); // [{ role: "admin", active: true, score: 92 }]
-const quickCheck = matchCondition({ score: { $gte: 80 } }, records[0]); // true
+const quickCheck = matchCondition({ score: { [op.gte]: 80 } }, records[0]); // true
 ```
 
 ### 3. Debugging: `explain()` & `trace()` / `explainTree()` & `traceTree()`

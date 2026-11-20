@@ -38,6 +38,16 @@
         "types": "./dist/cjs/index.d.ts",
         "default": "./dist/cjs/index.js"
       }
+    },
+    "./op": {
+      "import": {
+        "types": "./dist/esm/op.d.ts",
+        "default": "./dist/esm/op.js"
+      },
+      "require": {
+        "types": "./dist/cjs/op.d.ts",
+        "default": "./dist/cjs/op.js"
+      }
     }
   },
   "files": [
@@ -55,9 +65,9 @@
     "build:cjs": "tsc -p tsconfig.cjs.json && node -e \"require('node:fs').writeFileSync('dist/cjs/package.json', JSON.stringify({type:'commonjs'},null,2)+'\\n')\"",
     "build": "npm run clean && npm run build:esm && npm run build:cjs",
     "test:node": "tsc -p tsconfig.test.json && node --test dist-test/tests/*.test.js",
-    "test:bun": "bun test tests/conformance.test.ts tests/matcher.test.ts tests/limits_and_cycles.test.ts tests/options_and_builders.test.ts tests/explain_trace.test.ts tests/fuzz.test.ts",
+    "test:bun": "bun test tests/conformance.test.ts tests/matcher.test.ts tests/limits_and_cycles.test.ts tests/options_and_builders.test.ts tests/explain_trace.test.ts tests/fuzz.test.ts tests/op.test.ts",
     "test:fuzz": "tsc -p tsconfig.test.json && FUZZ_ITERATIONS=5000 node --test dist-test/tests/fuzz.test.js",
-    "test:smoke": "node -e \"Promise.all([import('mongory-js'),Promise.resolve(require('mongory-js'))]).then(([e,c])=>{const k='\\x24gte';const q={age:{[k]:18}};const em=e.mongory.compile(q);const cm=c.compileMatcher(q);if(!em.match({age:20})||!e.default.compile(q).match({age:20})||!e.compileMatcher(q).match({age:20})||!c.mongory.compile(q).match({age:20})||!cm.match({age:20}))process.exit(1);if(em.explainTree().kind!=='field'||em.explainTree().children[0].operator!==k||!em.traceTree({age:20}).matched||cm.explainTree().kind!=='field'||cm.traceTree({age:10}).matched)process.exit(1);}).catch(err=>{console.error(err);process.exit(1);})\"",
+    "test:smoke": "node -e \"Promise.all([import('mongory-js'),import('mongory-js/op'),Promise.resolve(require('mongory-js')),Promise.resolve(require('mongory-js/op'))]).then(([e,eo,c,co])=>{const k='\\x24gte';if(eo.op.gte!==k||eo.default.gte!==k||co.op.gte!==k||co.default.gte!==k)process.exit(1);const q={age:{[eo.op.gte]:18}};const em=e.mongory.compile(q);const cm=c.compileMatcher(q);if(!em.match({age:20})||!e.default.compile(q).match({age:20})||!e.compileMatcher(q).match({age:20})||!c.mongory.compile(q).match({age:20})||!cm.match({age:20}))process.exit(1);if(em.explainTree().kind!=='field'||em.explainTree().children[0].operator!==k||!em.traceTree({age:20}).matched||cm.explainTree().kind!=='field'||cm.traceTree({age:10}).matched)process.exit(1);}).catch(err=>{console.error(err);process.exit(1);})\"",
     "test": "npm run typecheck && npm run build && npm run test:smoke && npm run test:node",
     "bench": "npm run build && node scripts/bench.mjs"
   },
