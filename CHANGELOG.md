@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 (2026-11-23)
+
+### Added
+
+- **`mongory-js/op` subpath export**: Added frozen `op` operator constants (`op.eq`, `op.ne`, `op.gt`, `op.gte`, `op.lt`, `op.lte`, `op.in`, `op.nin`, `op.exists`, `op.present`, `op.and`, `op.or`, `op.not`, `op.elemMatch`, `op.every`, `op.size`, `op.regex`, `op.options`) for typo-safe query construction.
+- **Fuzz testing & Benchmarks**: Added deterministic randomized fuzz tests (`fuzz.test.mjs`) with CI smoke gate, `docs/performance.md`, and pre-compiled throughput benchmarks comparing against plain JS, `sift`, and `mingo`.
+- **Conformance**: Pinned `mongory-spec v0.2.1` conformance fixtures.
+
 ## 0.1.1 (2026-11-18)
 
 ### Fixed
