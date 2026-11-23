@@ -253,6 +253,11 @@ See [docs/performance.md](docs/performance.md) for full Node.js benchmark result
 - **Excluded operators**: Unknown `$`-prefixed keys fail compilation; aggregation (`$expr`), `$type`, `$mod`, geospatial, and update operators are not included.
 - Full specification: [`mongory-spec` Differences from MongoDB](https://github.com/mongoryhq/mongory-spec#37-differences-from-mongodb-query-syntax).
 
+## Security & Untrusted Input
+
+- **Engine protections**: Pure in-memory evaluation (no SQL, no `$where`/`eval`), own-property lookups with `__proto__` guard, circular reference rejection, and configurable `withMaxDepth` (default `64`) / `withMaxNodes` (default `4096`) limits.
+- **Application responsibility**: When exposing queries to untrusted users, validate scalar types (preventing operator injection such as `{ $ne: null }`), allowlist queryable fields so sensitive properties cannot be probed, and restrict or bound untrusted `$regex` patterns (JS `RegExp` uses backtracking).
+
 ## License
 
 MIT
