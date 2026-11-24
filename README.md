@@ -1,5 +1,11 @@
 # mongory-js
 
+[![npm version](https://img.shields.io/npm/v/mongory-js)](https://www.npmjs.com/package/mongory-js)
+[![CI](https://github.com/mongoryhq/mongory-js/actions/workflows/ci.yml/badge.svg)](https://github.com/mongoryhq/mongory-js/actions/workflows/ci.yml)
+[![mongory-spec](https://github.com/mongoryhq/mongory-js/actions/workflows/spec-conformance.yml/badge.svg)](https://github.com/mongoryhq/mongory-js/actions/workflows/spec-conformance.yml)
+![Node](https://img.shields.io/badge/Node-20%2B-339933)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **Zero-dependency TypeScript/JavaScript in-memory Mongo-style rule engine & query matcher** with built-in text (`explain()` / `trace()`) and structured AST (`explainTree()` / `traceTree()`) debugging — runs in browsers, Node.js (`>= 20`), Bun, Deno, and Edge runtimes.
 
 **[Try the Interactive Playground & Visual Explain/Trace Debugger ↗](https://mongoryhq.github.io/mongory-central/)**
