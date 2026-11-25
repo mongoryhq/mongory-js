@@ -39,7 +39,7 @@ Each case compares:
 ### Key Takeaways
 
 - **Why `plain_fast` looks ~10x faster on monomorphic data**: V8 TurboFan inlines static property access on uniform hidden classes down to `1.5 ns/rec`, skipping `Object.hasOwn`, non-plain-object guards, and array element expansion. On polymorphic records, `plain_fast` slows down ~6x (`1.5 -> 8.9 ns/rec`).
-- **Same-semantics comparison (`plain_safe`)**: Once hand-written JS performs equivalent safety and Mongo-style array checks, `mongory-js` stays within **1.01x–1.74x** (monomorphic) and **1.09x–2.09x** (polymorphic).
-- **Peer JS libraries (`sift`, `mingo`)**: `mongory-js` is **1.5x–6.9x faster** than `sift` and **2.6x–5.8x faster** than `mingo` on standard queries, and **200x–350x faster** on `large_in_500` thanks to compiled `Set` lookups.
+- **Same-semantics comparison (`plain_safe`)**: Once hand-written JS performs equivalent safety and Mongo-style array checks, `mongory-js` stays within **1.01x-1.74x** (monomorphic) and **1.09x-2.09x** (polymorphic).
+- **Peer JS libraries (`sift`, `mingo`)**: `mongory-js` is **1.5x-6.9x faster** than `sift` and **2.6x-5.8x faster** than `mingo` on standard queries, and **200x-350x faster** on `large_in_500` thanks to compiled `Set` lookups.
 
 > For cross-language benchmarks, see [Mongory Central](https://mongoryhq.github.io/mongory-central/#benchmarks).

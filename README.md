@@ -7,7 +7,7 @@
 ![Node](https://img.shields.io/badge/Node-20%2B-339933)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Zero-dependency TypeScript/JavaScript in-memory MongoDB-style query & rule engine** — with built-in text (`explain()` / `trace()`) and structured AST (`explainTree()` / `traceTree()`) debugging across browsers, Node (`>= 20`), Bun, Deno, and Edge runtimes.
+**Zero-dependency TypeScript/JavaScript in-memory MongoDB-style query and rule engine** with built-in text (`explain()` / `trace()`) and structured AST (`explainTree()` / `traceTree()`) debugging across browsers, Node (`>= 20`), Bun, Deno, and Edge runtimes.
 
 **[Try the Interactive Playground & Visual Explain/Trace Debugger ↗](https://mongoryhq.github.io/mongory-central/)**
 
@@ -70,8 +70,8 @@ const allowed = isAllowed.filter(records);
 ## Why Mongory? (and When Not to Use It)
 
 - **Use Mongory when**: rules are stored as JSON (DB/config/feature flags/rule builder UIs), need identical evaluation in the browser AND backend Go/Python/Ruby/C services (`mongory-spec`), or need visual `traceTree()` debugging to explain why a record failed.
-- **Don't use Mongory when**: your filter is a static `.filter((u) => u.age >= 18)` hardcoded in TS, or when you need MongoDB aggregation pipelines (`$group`, `$project`, `$lookup` — see `mingo`).
-- **vs `sift` / `mingo`**: faster compiled matching (**1.5x–6.9x** vs `sift`, **2.6x–5.8x** vs `mingo`, **200x–350x** on large `$in`), built-in `explainTree()`/`traceTree()`, `maxDepth`/`maxNodes` safety budgets, `__proto__` guard, and cross-language spec parity.
+- **Don't use Mongory when**: your filter is a static `.filter((u) => u.age >= 18)` hardcoded in TS, or when you need MongoDB aggregation pipelines (`$group`, `$project`, `$lookup`; see `mingo`).
+- **vs `sift` / `mingo`**: faster compiled matching (**1.5x-6.9x** vs `sift`, **2.6x-5.8x** vs `mingo`, **200x-350x** on large `$in`), built-in `explainTree()`/`traceTree()`, `maxDepth`/`maxNodes` safety budgets, `__proto__` guard, and cross-language spec parity.
 
 ## Benchmark Snapshot
 
@@ -84,7 +84,7 @@ Measured on Apple M3 (macOS arm64, Node `v23.1.0`, `10,000` records x 200 rounds
 | `in_array_field` | `35.1 ns` | `36.7 ns` | `255.4 ns` | `212.5 ns` | **7.0x / 5.8x faster** |
 | `large_in_500` | `34.4 ns` | `38.0 ns` | `13,429.8 ns` | `10,742.3 ns` | **353x / 282x faster** |
 
-*(On Bun 1.3, `simple` runs in `7.8 ns/rec` and `large_in_500` in `16.1 ns/rec`. Against semantics-equivalent defensive Plain JS `plain_safe`, `mongory-js` stays within `1.01x–2.09x`.)*
+*(On Bun 1.3, `simple` runs in `7.8 ns/rec` and `large_in_500` in `16.1 ns/rec`. Against semantics-equivalent defensive Plain JS `plain_safe`, `mongory-js` stays within `1.01x-2.09x`.)*
 
 ## Debugging: `explain()`, `trace()`, `explainTree()` & `traceTree()`
 
