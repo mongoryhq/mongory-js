@@ -262,7 +262,7 @@ class LiteralNode implements MatcherNode, PriorityParent {
   }
 
   priority(): number {
-    return 1 + (this.arrayRecord ?? this.dispatched).priority();
+    return (this.arrayRecord ?? this.dispatched).priority();
   }
 
   explain(lines: string[], prefix: string, isLast: boolean, isRoot: boolean): void {

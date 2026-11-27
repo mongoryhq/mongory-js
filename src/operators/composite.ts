@@ -173,7 +173,7 @@ class NotNode implements MatcherNode, PriorityParent {
   }
 
   priority(): number {
-    return 1 + this.inner.priority();
+    return 2 + this.inner.priority();
   }
 
   explain(lines: string[], prefix: string, isLast: boolean, isRoot: boolean): void {

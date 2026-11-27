@@ -106,7 +106,7 @@ class ArrayElementsNode implements MatcherNode, PriorityParent {
   }
 
   priority(): number {
-    return 3 + this.inner.priority();
+    return 8 + 2 * this.inner.priority();
   }
 
   explain(lines: string[], prefix: string, isLast: boolean, isRoot: boolean): void {
@@ -211,7 +211,7 @@ class SizeNode implements MatcherNode, PriorityParent {
   }
 
   priority(): number {
-    return 2 + this.inner.priority();
+    return 1 + Math.floor(this.inner.priority() / 2);
   }
 
   explain(lines: string[], prefix: string, isLast: boolean, isRoot: boolean): void {

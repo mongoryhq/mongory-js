@@ -160,7 +160,7 @@ abstract class BaseEqNode implements MatcherNode {
   abstract match(record: unknown): boolean;
 
   priority(): number {
-    return 1;
+    return this.negate ? 2 : 1;
   }
 
   protected label(): string {
@@ -279,7 +279,7 @@ abstract class BaseOrderNode implements MatcherNode {
   abstract match(record: unknown): boolean;
 
   priority(): number {
-    return 3;
+    return 2;
   }
 
   protected label(): string {

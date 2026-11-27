@@ -302,15 +302,19 @@ test("lazy arrayRecord build updates Field and root priority in traceTree and ex
   });
 
   const before = m.explainTree();
-  assert.equal(before.priority, 34);
+  assert.equal(before.priority, 27);
   assert.deepEqual(
     before.children.map((c) => [c.field, c.priority]),
     [
-      ["tags", 3],
-      ["reviews", 11],
-      ["scores", 19],
+      ["tags", 2],
+      ["reviews", 7],
+      ["scores", 17],
     ],
   );
+  // $size ($gte:3, $lte:5) must sort BEFORE $every ($gte:60) inside scores
+  const scoresChildren = before.children[2].children[0].children;
+  assert.equal(scoresChildren[0].operator, "$size");
+  assert.equal(scoresChildren[1].operator, "$every");
 
   const trace = m.traceTree({
     candidate: "Alice",
@@ -323,53 +327,53 @@ test("lazy arrayRecord build updates Field and root priority in traceTree and ex
     ],
   });
   assert.equal(trace.matched, true);
-  assert.equal(trace.tree.priority, 40);
+  assert.equal(trace.tree.priority, 50);
   assert.deepEqual(
     trace.tree.children.map((c) => [c.field, c.priority, c.children[0]?.priority]),
     [
-      ["tags", 6, 4],
-      ["reviews", 14, 12],
-      ["scores", 19, 17],
+      ["tags", 11, 10],
+      ["reviews", 21, 20],
+      ["scores", 17, 16],
     ],
   );
 
   const after = m.explainTree();
-  assert.equal(after.priority, 40);
+  assert.equal(after.priority, 50);
   assert.deepEqual(
     after.children.map((c) => [c.field, c.priority]),
     [
-      ["tags", 6],
-      ["reviews", 14],
-      ["scores", 19],
+      ["tags", 11],
+      ["scores", 17],
+      ["reviews", 21],
     ],
   );
   assert.equal(after.children[0].children[0].operator, "$elemMatch");
-  assert.equal(after.children[1].children[0].operator, "$elemMatch");
+  assert.equal(after.children[2].children[0].operator, "$elemMatch");
 
   // Nested array inside $elemMatch updates element wrapper + skip priorities + outer priority
   const nested = compileMatcher({
     groups: { $elemMatch: { tags: "ts" } },
   });
-  assert.equal(nested.explainTree().priority, 8);
+  assert.equal(nested.explainTree().priority, 13);
   const nestedTrace = nested.traceTree({
     groups: [{ tags: ["go", "ts"] }, { tags: ["rust"] }],
   });
   assert.equal(nestedTrace.matched, true);
   const elemMatchNode = nestedTrace.tree.children[0];
-  assert.equal(elemMatchNode.children[0].priority, 6);
-  assert.equal(elemMatchNode.children[1].priority, 6);
-  assert.equal(nestedTrace.tree.priority, 11);
+  assert.equal(elemMatchNode.children[0].priority, 11);
+  assert.equal(elemMatchNode.children[1].priority, 11);
+  assert.equal(nestedTrace.tree.priority, 31);
 
   // ExtLiteralNode with converter inherits the same priority & explain behavior
   const ext = compileMatcher(
     { tags: "ts" },
     withConverter(Set, (s) => Array.from(s)),
   );
-  assert.equal(ext.explainTree().priority, 3);
+  assert.equal(ext.explainTree().priority, 2);
   const extTrace = ext.traceTree({ tags: new Set(["go", "ts"]) });
   assert.equal(extTrace.matched, true);
-  assert.equal(extTrace.tree.priority, 6);
-  assert.equal(ext.explainTree().priority, 6);
+  assert.equal(extTrace.tree.priority, 11);
+  assert.equal(ext.explainTree().priority, 11);
 });
 
 test("lazy arrayRecord build re-sorts sibling matchers in And, Or, and nested arrays", () => {
@@ -379,38 +383,38 @@ test("lazy arrayRecord build re-sorts sibling matchers in And, Or, and nested ar
     items: { $size: { $gte: 1 } },
   });
 
-  // Initial order: tags (3) < age (5) < items (8)
+  // Initial order: tags (2) < age (3) <= items (3)
   assert.deepEqual(
     m.explainTree().children.map((c) => [c.field, c.priority]),
     [
-      ["tags", 3],
-      ["age", 5],
-      ["items", 8],
+      ["tags", 2],
+      ["age", 3],
+      ["items", 3],
     ],
   );
 
-  // Triggering arrayRecord on tags raises tags to 6 (> age 5, < items 8)
+  // Triggering arrayRecord on tags raises tags to 11 (> age 3, > items 3)
   assert.equal(m.match({ tags: ["go", "ts"], age: 20, items: [1] }), true);
 
-  // Subsequent explainTree and traceTree reflect re-sorted order: age (5) < tags (6) < items (8)
+  // Subsequent explainTree and traceTree reflect re-sorted order: age (3) <= items (3) < tags (11)
   assert.deepEqual(
     m.explainTree().children.map((c) => [c.field, c.priority, c.order]),
     [
-      ["age", 5, 0],
-      ["tags", 6, 1],
-      ["items", 8, 2],
+      ["age", 3, 0],
+      ["items", 3, 1],
+      ["tags", 11, 2],
     ],
   );
 
-  // Cheaper age condition now runs first and short-circuits before scanning tags/items arrays
+  // Cheaper age condition now runs first and short-circuits before checking items/tags
   const fastFail = m.traceTree({ tags: ["go", "ts"], age: 15, items: [1] });
   assert.equal(fastFail.matched, false);
-  assert.equal(fastFail.tree.priority, 20);
+  assert.equal(fastFail.tree.priority, 18);
   assert.equal(fastFail.tree.children[0].field, "age");
   assert.equal(fastFail.tree.children[0].status, "FAIL");
-  assert.equal(fastFail.tree.children[1].field, "tags");
+  assert.equal(fastFail.tree.children[1].field, "items");
   assert.equal(fastFail.tree.children[1].status, "SKIP");
-  assert.equal(fastFail.tree.children[2].field, "items");
+  assert.equal(fastFail.tree.children[2].field, "tags");
   assert.equal(fastFail.tree.children[2].status, "SKIP");
 
   // $or branches also re-sort when a branch triggers arrayRecord
@@ -420,17 +424,17 @@ test("lazy arrayRecord build re-sorts sibling matchers in And, Or, and nested ar
   assert.deepEqual(
     orMatcher.explainTree().children.map((c) => [c.field, c.priority]),
     [
-      ["tags", 3],
-      ["age", 5],
+      ["tags", 2],
+      ["age", 3],
     ],
   );
-  // First branch passes immediately on { tags: ["go", "ts"], age: 10 }, sorting Or to [age(5), tags(6)]
+  // First branch passes immediately on { tags: ["go", "ts"], age: 10 }, sorting Or to [age(3), tags(11)]
   assert.equal(orMatcher.match({ tags: ["go", "ts"], age: 10 }), true);
   assert.deepEqual(
     orMatcher.explainTree().children.map((c) => [c.field, c.priority]),
     [
-      ["age", 5],
-      ["tags", 6],
+      ["age", 3],
+      ["tags", 11],
     ],
   );
 });

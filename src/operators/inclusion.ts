@@ -163,7 +163,8 @@ class StringInNode implements MatcherNode {
   }
 
   priority(): number {
-    return this.set ? 3 : 2 + Math.floor(this.items.length / 8);
+    const base = this.set ? 3 : 2 + Math.floor(this.items.length / 8);
+    return this.negate ? base + 1 : base;
   }
 
   private label(): string {
@@ -233,10 +234,10 @@ class InNode implements MatcherNode {
   }
 
   priority(): number {
-    if (this.lookup) {
-      return 3 + Math.floor(this.lookup.fallback.length / 8);
-    }
-    return 2 + Math.floor(this.items.length / 8);
+    const base = this.lookup
+      ? 3 + Math.floor(this.lookup.fallback.length / 8)
+      : 2 + Math.floor(this.items.length / 8);
+    return this.negate ? base + 1 : base;
   }
 
   label(): string {
