@@ -47,9 +47,7 @@ export function checkDepthLimit(depth: number, maxDepth: number): void {
 
 export function cloneStatelessRegExp(re: RegExp): RegExp {
   const flags = re.flags.replace(/[gy]/g, "");
-  return flags === re.flags && !re.global && !re.sticky
-    ? new RegExp(re.source, flags)
-    : new RegExp(re.source, flags);
+  return new RegExp(re.source, flags);
 }
 
 /**

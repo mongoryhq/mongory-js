@@ -222,10 +222,3 @@ export function isPresent(v: unknown): boolean {
   }
   return true;
 }
-
-/**
- * Returns true if `value` should take MongoDB implicit array dispatch semantics.
- */
-export function isArrayRecordValue(value: unknown): value is unknown[] {
-  return Array.isArray(value);
-}
