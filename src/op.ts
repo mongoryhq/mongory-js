@@ -37,6 +37,7 @@ export const op = Object.freeze({
   // Logical operators
   and: "$and",
   or: "$or",
+  nor: "$nor",
   not: "$not",
 
   // Array operators

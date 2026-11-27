@@ -43,6 +43,7 @@ const OP_KEYS = [
   "$nin",
   "$and",
   "$or",
+  "$nor",
   "$not",
   "$elemMatch",
   "$every",

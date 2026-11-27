@@ -39,6 +39,7 @@ export type TraceStatus = "PASS" | "FAIL" | "SKIP";
 export type MatcherNodeKind =
   | "and"
   | "or"
+  | "nor"
   | "not"
   | "field"
   | "elemMatch"

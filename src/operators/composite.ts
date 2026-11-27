@@ -153,6 +153,71 @@ export class AnyOfNode implements MatcherNode, PriorityParent {
   }
 }
 
+export class NoneOfNode implements MatcherNode, PriorityParent {
+  private parent?: PriorityParent;
+  private _children: ReadonlyArray<MatcherNode>;
+
+  constructor(children: ReadonlyArray<MatcherNode>) {
+    this._children = children;
+    for (let i = 0; i < children.length; i++) {
+      children[i].setParent?.(this);
+    }
+  }
+
+  get children(): ReadonlyArray<MatcherNode> {
+    return this._children;
+  }
+
+  setParent(parent: PriorityParent): void {
+    this.parent = parent;
+  }
+
+  onChildPriorityChanged(): void {
+    this._children = resortGroupChildren(this._children);
+    this.parent?.onChildPriorityChanged();
+  }
+
+  match(record: unknown): boolean {
+    const children = this._children;
+    for (let i = 0; i < children.length; i++) {
+      if (children[i].match(record)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  priority(): number {
+    const children = this._children;
+    let total = 2;
+    for (let i = 0; i < children.length; i++) {
+      total += children[i].priority();
+    }
+    return total;
+  }
+
+  explain(lines: string[], prefix: string, isLast: boolean, isRoot: boolean): void {
+    const children = this._children;
+    if (children.length === 0) {
+      writeTreeLine(lines, prefix, isLast, isRoot, "Nor (empty)");
+      return;
+    }
+    explainBranch(lines, prefix, isLast, isRoot, "Nor", children);
+  }
+
+  trace(record: unknown, lines: string[], prefix: string, isLast: boolean, isRoot: boolean): boolean {
+    return traceGroup(record, lines, prefix, isLast, isRoot, "Nor", this._children, true, true);
+  }
+
+  explainTree(order?: number): ExplainNode {
+    return explainGroupTree(this, "nor", "Nor", "$nor", this._children, order);
+  }
+
+  traceTree(record: unknown, order?: number): TraceNode {
+    return traceGroupTree(this, record, "nor", "Nor", "$nor", this._children, true, order, true);
+  }
+}
+
 class NotNode implements MatcherNode, PriorityParent {
   private parent?: PriorityParent;
 
@@ -236,6 +301,11 @@ export function registerCompositeOperators(registry: Map<string, OperatorBuilder
   registry.set("$or", (ctx, condition) => {
     const children = buildConditionList(ctx, "$or", condition);
     return new AnyOfNode(children);
+  });
+
+  registry.set("$nor", (ctx, condition) => {
+    const children = buildConditionList(ctx, "$nor", condition);
+    return new NoneOfNode(children);
   });
 
   registry.set("$not", (ctx, condition) => {

@@ -89,12 +89,13 @@ export function traceGroup(
   prefix: string,
   isLast: boolean,
   isRoot: boolean,
-  op: "And" | "Or",
+  op: "And" | "Or" | "Nor",
   children: ReadonlyArray<MatcherNode>,
   stopOn: boolean,
+  invert = false,
 ): boolean {
   if (children.length === 0) {
-    const matched = !stopOn;
+    const matched = invert ? stopOn : !stopOn;
     writeTreeLine(
       lines,
       prefix,
@@ -117,6 +118,9 @@ export function traceGroup(
       }
       break;
     }
+  }
+  if (invert) {
+    matched = !matched;
   }
   writeTreeLine(lines, prefix, isLast, isRoot, `[${statusLabel(matched)}] ${op} | value=${formatTraceValue(record)}`);
   for (const line of childLines) {
@@ -232,9 +236,9 @@ export function markTreeSkipped(explain: ExplainNode, detail = "short-circuited"
 
 export function explainGroupTree(
   node: MatcherNode,
-  kind: "and" | "or",
-  opName: "And" | "Or",
-  operator: "$and" | "$or",
+  kind: "and" | "or" | "nor",
+  opName: "And" | "Or" | "Nor",
+  operator: "$and" | "$or" | "$nor",
   children: ReadonlyArray<MatcherNode>,
   order?: number,
 ): ExplainNode {
@@ -255,15 +259,16 @@ export function explainGroupTree(
 export function traceGroupTree(
   node: MatcherNode,
   record: unknown,
-  kind: "and" | "or",
-  opName: "And" | "Or",
-  operator: "$and" | "$or",
+  kind: "and" | "or" | "nor",
+  opName: "And" | "Or" | "Nor",
+  operator: "$and" | "$or" | "$nor",
   children: ReadonlyArray<MatcherNode>,
   stopOn: boolean,
   order?: number,
+  invert = false,
 ): TraceNode {
   if (children.length === 0) {
-    return makeTraceNode(kind, !stopOn, `${opName} (empty)`, node.priority(), record, [], {
+    return makeTraceNode(kind, invert ? stopOn : !stopOn, `${opName} (empty)`, node.priority(), record, [], {
       order,
       operator,
       detail: "empty",
@@ -281,6 +286,9 @@ export function traceGroupTree(
       }
       break;
     }
+  }
+  if (invert) {
+    matched = !matched;
   }
   return makeTraceNode(kind, matched, opName, node.priority(), record, childTrees, {
     order,

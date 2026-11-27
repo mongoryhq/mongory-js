@@ -20,6 +20,7 @@ test("op exports frozen string constants for all built-in operators", () => {
     present: "$present",
     and: "$and",
     or: "$or",
+    nor: "$nor",
     not: "$not",
     elemMatch: "$elemMatch",
     every: "$every",
